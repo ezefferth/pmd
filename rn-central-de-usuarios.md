@@ -10,9 +10,10 @@ Versão: 1.3.0 | Stack: **monorepo** — `auth-api` (NestJS · Fastify) + `admin
 > (painel Next.js — o **gerenciador de usuários** da prefeitura). A interface consome a API; nunca
 > acessa o banco diretamente (UI → API → domínio).
 >
-> **Identidade unificada (revisão a confirmar):** todos se autoregistram no CUD e nascem como
-> `EXTERNO`; servidores recebem **vínculo interno** e **ficha funcional** (seção 11). Isso revê a
-> separação anterior em que cidadãos ficavam apenas no SPD — impacta o portal do SPD (issue #1).
+> **Identidade unificada (decidido):** a central de usuários é **única**. Todos — inclusive cidadãos —
+> autoregistram a conta **no CUD** e nascem `EXTERNO`; servidores recebem **vínculo interno** e
+> **ficha funcional** (seção 11). O SPD **não cria** contas de cidadão: consome a identidade do CUD,
+> e com a conta criada o cidadão acessa o SPD para abrir processos (issue #1).
 >
 > **Convenção:** nomenclatura pt-BR obrigatória (ver `CLAUDE.md` raiz). As permissões no formato
 > `MODULO:ACAO` (ex.: `PROCESSOS:CRIAR`) são o **contrato de integração** consumido pelos sistemas —
@@ -221,7 +222,7 @@ O `admin-web` (Next.js App Router) é o **gerenciador de usuários** da prefeitu
 
 Além do **admin global** (RN-CUD-009), o CUD suporta **administração delegada por setor**: cada setor pode ter um (ou mais) administrador, que cuida do próprio setor **e de todos os setores abaixo dele**, recursivamente. Para isso, o CUD mantém a hierarquia organizacional do município.
 
-> **Nota de arquitetura (a revisar):** a hierarquia de setores passa a ser **canônica no CUD** (dado de identidade/lotação de pessoas). O `Organograma` do SPD (roteamento de processos) deve **mapear/consumir** esses setores em vez de duplicá-los — decisão a confirmar na revisão da integração.
+> **Nota de arquitetura (decidido):** a hierarquia de setores é **canônica no CUD** — é onde se define oficialmente em qual setor o usuário é servidor (lotação oficial). Futuramente esses setores serão **puxados do sistema de RH** (a ser criado) para o CUD. O SPD pode **manter seu próprio `Organograma`** para roteamento de processos, **mesmo que a árvore fique duplicada**; a lotação oficial do servidor é sempre a do CUD.
 
 ### 10.1 Hierarquia de Setores
 
@@ -301,7 +302,7 @@ Todo usuário se autoregistra e nasce **externo**. Para se tornar servidor (ou o
 
 - **RN-CUD-053 (origem RH):** A ficha é **provida e mantida pelo sistema de RH** (integração externa). O **dado-mestre funcional é o RH**; o CUD armazena e sincroniza pela chave `rhId`.
 
-- **RN-CUD-054:** A sincronização do RH pode definir/atualizar `tipoVinculo`, a lotação (`setorLotacaoId`, que reflete em `Usuario.setorId` — seção 10) e `situacaoFuncional`. `EXONERADO`/`APOSENTADO` aciona o rebaixamento da RN-CUD-051 (regra a confirmar na revisão).
+- **RN-CUD-054:** A sincronização do RH pode definir/atualizar `tipoVinculo`, a lotação (`setorLotacaoId`, que reflete em `Usuario.setorId` — seção 10) e `situacaoFuncional`. `EXONERADO`/`APOSENTADO` **aciona o rebaixamento** da RN-CUD-051 (rebaixa para `EXTERNO` e revoga acessos internos).
 
 - **RN-CUD-055:** O `admin-web` **exibe** a ficha funcional; edição direta é restrita (preferir o fluxo do RH). Acesso e alterações da ficha seguem auditoria (seção 7).
 
@@ -359,7 +360,7 @@ ConfiguracaoSistema (CUD):
 | `SituacaoFuncional`| ATIVO, AFASTADO, LICENCA, EXONERADO, APOSENTADO                                                  |
 | `AcaoAuditoria`    | CRIAR, ATUALIZAR, EXCLUIR, CONCEDER_ACESSO, REVOGAR_ACESSO, LOGIN, LOGOUT, REDEFINIR_SENHA, BLOQUEAR_USUARIO, ATIVAR_USUARIO, NOMEAR_ADMIN_SETOR, REMOVER_ADMIN_SETOR, MUDAR_VINCULO, SINCRONIZAR_FICHA |
 
-> **Revisão (v1.3):** externos (incl. cidadãos/empresas) passam a existir no CUD como `tipoVinculo = EXTERNO`, autoregistrados. A autenticação do portal do SPD migra do `Citizen` próprio para o CUD — **mudança estrutural no SPD** rastreada na issue #1. Servidores ganham vínculo interno + ficha funcional (seção 11).
+> **Decidido (v1.3):** a central é **única**. Externos (incl. cidadãos/empresas) existem **no CUD** como `tipoVinculo = EXTERNO`, autoregistrados. O SPD **não tem mais** entidade `Citizen` — autentica o cidadão via CUD (issue #1). Servidores ganham vínculo interno + ficha funcional (seção 11).
 
 ---
 
