@@ -70,11 +70,13 @@ enum AcaoAuditoria {
 /// Usuário municipal — ponto único de verdade de identidade (seção 1)
 model Usuario {
   id            String        @id @default(uuid())
-  nome          String
-  cpf           String        @unique
-  email         String        @unique
-  matricula     String?       @unique
-  telefone      String?
+  nome             String
+  cpf              String        @unique
+  email            String        @unique
+  emailSecundario  String?
+  matricula        String?       @unique
+  telefone         String?
+  telefoneSecundario String?
   // id do Supabase Auth (sub do JWT) — chave de correlação com os sistemas (RN-CUD-002)
   authId        String?       @unique
   status        StatusUsuario @default(PENDENTE_ATIVACAO)
