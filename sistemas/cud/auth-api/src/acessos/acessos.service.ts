@@ -3,9 +3,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { StatusUsuario, TipoVinculo } from '@prisma/client'
+import { AcaoAuditoria, StatusUsuario, TipoVinculo } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { CacheService } from '../cache/cache.service'
+import { AuditoriaService } from '../auditoria/auditoria.service'
+import { ContextoRequisicao } from '../comum/contexto'
 import { ConcederAcessoDto } from './dto/conceder-acesso.dto'
 import { VerificarAcessoDto } from './dto/verificar-acesso.dto'
 
@@ -29,9 +31,10 @@ export class AcessosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
+    private readonly auditoria: AuditoriaService,
   ) {}
 
-  async conceder(dto: ConcederAcessoDto, concedidoPorId: string) {
+  async conceder(dto: ConcederAcessoDto, contexto: ContextoRequisicao) {
     const perfil = await this.prisma.perfil.findUnique({
       where: { id: dto.perfilId },
       select: { sistemaId: true },
@@ -53,14 +56,14 @@ export class AcessosService {
         usuarioId: dto.usuarioId,
         sistemaId: dto.sistemaId,
         perfilId: dto.perfilId,
-        concedidoPorId,
+        concedidoPorId: contexto.ator?.id ?? null,
         dataExpiracao: dto.dataExpiracao ? new Date(dto.dataExpiracao) : null,
         motivo: dto.motivo,
         ativo: true,
       },
       update: {
         perfilId: dto.perfilId,
-        concedidoPorId,
+        concedidoPorId: contexto.ator?.id ?? null,
         dataExpiracao: dto.dataExpiracao ? new Date(dto.dataExpiracao) : null,
         motivo: dto.motivo,
         ativo: true,
@@ -68,15 +71,26 @@ export class AcessosService {
     })
 
     await this.cache.invalidar(this.chave(dto.usuarioId, dto.sistemaId))
+    await this.auditoria.registrar(contexto, {
+      acao: AcaoAuditoria.CONCEDER_ACESSO,
+      entidade: 'Acesso',
+      entidadeId: acesso.id,
+      valorNovo: { sistemaId: dto.sistemaId, perfilId: dto.perfilId },
+    })
     return acesso
   }
 
-  async revogar(usuarioId: string, sistemaId: string) {
+  async revogar(usuarioId: string, sistemaId: string, contexto: ContextoRequisicao) {
     await this.prisma.acesso.updateMany({
       where: { usuarioId, sistemaId },
       data: { ativo: false },
     })
     await this.cache.invalidar(this.chave(usuarioId, sistemaId))
+    await this.auditoria.registrar(contexto, {
+      acao: AcaoAuditoria.REVOGAR_ACESSO,
+      entidade: 'Acesso',
+      entidadeId: `${usuarioId}:${sistemaId}`,
+    })
     return { revogado: true }
   }
 

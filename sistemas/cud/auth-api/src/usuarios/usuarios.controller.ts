@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { AdminGlobalGuard } from '../auth/guards/admin-global.guard'
+import { Contexto, ContextoRequisicao } from '../comum/contexto'
 import { UsuariosService } from './usuarios.service'
 import { CriarUsuarioDto } from './dto/criar-usuario.dto'
 import { AutoRegistroDto } from './dto/auto-registro.dto'
@@ -24,14 +25,14 @@ export class UsuariosController {
 
   // público — autoregistro de externo (RN-CUD-046)
   @Post('auto-registro')
-  autoRegistrar(@Body() dto: AutoRegistroDto) {
-    return this.usuarios.autoRegistrar(dto)
+  autoRegistrar(@Body() dto: AutoRegistroDto, @Contexto() contexto: ContextoRequisicao) {
+    return this.usuarios.autoRegistrar(dto, contexto)
   }
 
   @UseGuards(JwtAuthGuard, AdminGlobalGuard)
   @Post()
-  criar(@Body() dto: CriarUsuarioDto) {
-    return this.usuarios.criar(dto)
+  criar(@Body() dto: CriarUsuarioDto, @Contexto() contexto: ContextoRequisicao) {
+    return this.usuarios.criar(dto, contexto)
   }
 
   @UseGuards(JwtAuthGuard, AdminGlobalGuard)
@@ -48,19 +49,31 @@ export class UsuariosController {
 
   @UseGuards(JwtAuthGuard, AdminGlobalGuard)
   @Patch(':id')
-  atualizar(@Param('id') id: string, @Body() dto: AtualizarUsuarioDto) {
-    return this.usuarios.atualizar(id, dto)
+  atualizar(
+    @Param('id') id: string,
+    @Body() dto: AtualizarUsuarioDto,
+    @Contexto() contexto: ContextoRequisicao,
+  ) {
+    return this.usuarios.atualizar(id, dto, contexto)
   }
 
   @UseGuards(JwtAuthGuard, AdminGlobalGuard)
   @Patch(':id/vinculo')
-  alterarVinculo(@Param('id') id: string, @Body() dto: AlterarVinculoDto) {
-    return this.usuarios.alterarVinculo(id, dto)
+  alterarVinculo(
+    @Param('id') id: string,
+    @Body() dto: AlterarVinculoDto,
+    @Contexto() contexto: ContextoRequisicao,
+  ) {
+    return this.usuarios.alterarVinculo(id, dto, contexto)
   }
 
   @UseGuards(JwtAuthGuard, AdminGlobalGuard)
   @Patch(':id/status')
-  alterarStatus(@Param('id') id: string, @Body() dto: AlterarStatusDto) {
-    return this.usuarios.alterarStatus(id, dto.status)
+  alterarStatus(
+    @Param('id') id: string,
+    @Body() dto: AlterarStatusDto,
+    @Contexto() contexto: ContextoRequisicao,
+  ) {
+    return this.usuarios.alterarStatus(id, dto.status, contexto)
   }
 }

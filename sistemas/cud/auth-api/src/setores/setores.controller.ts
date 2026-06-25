@@ -12,6 +12,7 @@ import { Usuario } from '@prisma/client'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { AdminGlobalGuard } from '../auth/guards/admin-global.guard'
 import { UsuarioAtual } from '../auth/decorators/usuario-atual.decorator'
+import { Contexto, ContextoRequisicao } from '../comum/contexto'
 import { SetoresService } from './setores.service'
 import { CriarSetorDto } from './dto/criar-setor.dto'
 import { AtualizarSetorDto } from './dto/atualizar-setor.dto'
@@ -68,26 +69,26 @@ export class SetoresController {
   nomearAdmin(
     @Param('id') id: string,
     @Body() dto: NomearAdminDto,
-    @UsuarioAtual() ator: Usuario,
+    @Contexto() contexto: ContextoRequisicao,
   ) {
-    return this.setores.nomearAdmin(id, dto.usuarioId, ator)
+    return this.setores.nomearAdmin(id, dto.usuarioId, contexto)
   }
 
   @Delete(':id/administradores/:usuarioId')
   removerAdmin(
     @Param('id') id: string,
     @Param('usuarioId') usuarioId: string,
-    @UsuarioAtual() ator: Usuario,
+    @Contexto() contexto: ContextoRequisicao,
   ) {
-    return this.setores.removerAdmin(id, usuarioId, ator)
+    return this.setores.removerAdmin(id, usuarioId, contexto)
   }
 
   @Patch(':id/lotacao')
   definirLotacao(
     @Param('id') id: string,
     @Body() dto: DefinirLotacaoDto,
-    @UsuarioAtual() ator: Usuario,
+    @Contexto() contexto: ContextoRequisicao,
   ) {
-    return this.setores.definirLotacao(id, dto.usuarioId, ator)
+    return this.setores.definirLotacao(id, dto.usuarioId, contexto)
   }
 }

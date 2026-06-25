@@ -4,9 +4,16 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { Prisma, StatusUsuario, TipoVinculo } from '@prisma/client'
+import {
+  AcaoAuditoria,
+  Prisma,
+  StatusUsuario,
+  TipoVinculo,
+} from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { SupabaseService } from '../supabase/supabase.service'
+import { AuditoriaService } from '../auditoria/auditoria.service'
+import { ContextoRequisicao } from '../comum/contexto'
 import { validarCpf } from '../comum/cpf'
 import { montarPaginado, ResultadoPaginado } from '../comum/paginacao'
 import { CriarUsuarioDto } from './dto/criar-usuario.dto'
@@ -33,30 +40,37 @@ export class UsuariosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly supabase: SupabaseService,
+    private readonly auditoria: AuditoriaService,
   ) {}
 
-  async criar(dto: CriarUsuarioDto) {
-    return this.criarComAuth({
-      nome: dto.nome,
-      email: dto.email,
-      cpf: dto.cpf,
-      matricula: dto.matricula,
-      telefone: dto.telefone,
-      tipoVinculo: dto.tipoVinculo ?? TipoVinculo.EXTERNO,
-      ehAdminGlobal: dto.ehAdminGlobal ?? false,
-    })
+  async criar(dto: CriarUsuarioDto, contexto: ContextoRequisicao) {
+    return this.criarComAuth(
+      {
+        nome: dto.nome,
+        email: dto.email,
+        cpf: dto.cpf,
+        matricula: dto.matricula,
+        telefone: dto.telefone,
+        tipoVinculo: dto.tipoVinculo ?? TipoVinculo.EXTERNO,
+        ehAdminGlobal: dto.ehAdminGlobal ?? false,
+      },
+      contexto,
+    )
   }
 
-  async autoRegistrar(dto: AutoRegistroDto) {
+  async autoRegistrar(dto: AutoRegistroDto, contexto: ContextoRequisicao) {
     // externo sempre nasce EXTERNO; senha definida pelo próprio usuário
-    return this.criarComAuth({
-      nome: dto.nome,
-      email: dto.email,
-      cpf: dto.cpf,
-      tipoVinculo: TipoVinculo.EXTERNO,
-      ehAdminGlobal: false,
-      senha: dto.senha,
-    })
+    return this.criarComAuth(
+      {
+        nome: dto.nome,
+        email: dto.email,
+        cpf: dto.cpf,
+        tipoVinculo: TipoVinculo.EXTERNO,
+        ehAdminGlobal: false,
+        senha: dto.senha,
+      },
+      contexto,
+    )
   }
 
   async listar(dto: ListarUsuariosDto): Promise<ResultadoPaginado<UsuarioResumo>> {
@@ -95,9 +109,9 @@ export class UsuariosService {
     return usuario
   }
 
-  async atualizar(id: string, dto: AtualizarUsuarioDto) {
+  async atualizar(id: string, dto: AtualizarUsuarioDto, contexto: ContextoRequisicao) {
     await this.garantirExiste(id)
-    return this.prisma.usuario.update({
+    const usuario = await this.prisma.usuario.update({
       where: { id },
       data: {
         nome: dto.nome,
@@ -107,12 +121,19 @@ export class UsuariosService {
       },
       select: resumoSelect,
     })
+    await this.auditoria.registrar(contexto, {
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'Usuario',
+      entidadeId: id,
+      valorNovo: dto,
+    })
+    return usuario
   }
 
-  async alterarVinculo(id: string, dto: AlterarVinculoDto) {
+  async alterarVinculo(id: string, dto: AlterarVinculoDto, contexto: ContextoRequisicao) {
     const usuario = await this.prisma.usuario.findUnique({
       where: { id },
-      select: { id: true, matricula: true },
+      select: { id: true, matricula: true, tipoVinculo: true },
     })
     if (!usuario) throw new NotFoundException('Usuário não encontrado')
 
@@ -125,34 +146,57 @@ export class UsuariosService {
     }
     this.validarMatricula(dto.tipoVinculo, matricula)
 
-    return this.prisma.usuario.update({
+    const atualizado = await this.prisma.usuario.update({
       where: { id },
       data: { tipoVinculo: dto.tipoVinculo, matricula },
       select: resumoSelect,
     })
+    await this.auditoria.registrar(contexto, {
+      acao: AcaoAuditoria.MUDAR_VINCULO,
+      entidade: 'Usuario',
+      entidadeId: id,
+      valorAnterior: { tipoVinculo: usuario.tipoVinculo },
+      valorNovo: { tipoVinculo: dto.tipoVinculo },
+    })
+    return atualizado
   }
 
-  async alterarStatus(id: string, status: StatusUsuario) {
+  async alterarStatus(id: string, status: StatusUsuario, contexto: ContextoRequisicao) {
     await this.garantirExiste(id)
-    return this.prisma.usuario.update({
+    const usuario = await this.prisma.usuario.update({
       where: { id },
       data: { status, ativo: status === StatusUsuario.ATIVO },
       select: resumoSelect,
     })
+    await this.auditoria.registrar(contexto, {
+      acao:
+        status === StatusUsuario.ATIVO
+          ? AcaoAuditoria.ATIVAR_USUARIO
+          : status === StatusUsuario.BLOQUEADO
+            ? AcaoAuditoria.BLOQUEAR_USUARIO
+            : AcaoAuditoria.ATUALIZAR,
+      entidade: 'Usuario',
+      entidadeId: id,
+      valorNovo: { status },
+    })
+    return usuario
   }
 
   // ── auxiliares ──────────────────────────────────────────────
 
-  private async criarComAuth(params: {
-    nome: string
-    email: string
-    cpf: string
-    matricula?: string
-    telefone?: string
-    tipoVinculo: TipoVinculo
-    ehAdminGlobal: boolean
-    senha?: string
-  }) {
+  private async criarComAuth(
+    params: {
+      nome: string
+      email: string
+      cpf: string
+      matricula?: string
+      telefone?: string
+      tipoVinculo: TipoVinculo
+      ehAdminGlobal: boolean
+      senha?: string
+    },
+    contexto: ContextoRequisicao,
+  ) {
     if (!validarCpf(params.cpf)) throw new BadRequestException('CPF inválido')
     this.validarMatricula(params.tipoVinculo, params.matricula)
     await this.garantirUnicidade(params.cpf, params.email, params.matricula)
@@ -173,8 +217,9 @@ export class UsuariosService {
       )
     }
 
+    let usuario: UsuarioResumo
     try {
-      return await this.prisma.usuario.create({
+      usuario = await this.prisma.usuario.create({
         data: {
           nome: params.nome,
           email: params.email,
@@ -193,6 +238,17 @@ export class UsuariosService {
       await this.supabase.excluirUsuarioAuth(data.user.id)
       throw erro
     }
+
+    await this.auditoria.registrar(contexto, {
+      acao: AcaoAuditoria.CRIAR,
+      entidade: 'Usuario',
+      entidadeId: usuario.id,
+      valorNovo: {
+        email: params.email,
+        tipoVinculo: params.tipoVinculo,
+      },
+    })
+    return usuario
   }
 
   // RN-CUD-061: matrícula existe só para efetivo/comissionado
