@@ -273,6 +273,7 @@ Todo usuário se autoregistra e nasce **externo**. Para se tornar servidor (ou o
   | `COMISSIONADO` | Cargo em comissão (livre nomeação)                                |
   | `ESTAGIARIO`   | Estagiário                                                         |
   | `ELETIVO`      | Agente político eleito (prefeito, vice, vereadores)               |
+  | `TEMPORARIO`   | Contratação por tempo determinado (paridade com o RH)             |
 
 - Derivado: `ehInterno = tipoVinculo != EXTERNO`.
 
@@ -365,7 +366,7 @@ ConfiguracaoSistema (CUD):
 | Enum               | Valores                                                                                          |
 |--------------------|-------------------------------------------------------------------------------------------------|
 | `StatusUsuario`    | PENDENTE_ATIVACAO, ATIVO, INATIVO, BLOQUEADO                                                     |
-| `TipoVinculo`      | EXTERNO, EFETIVO, COMISSIONADO, ESTAGIARIO, ELETIVO                                              |
+| `TipoVinculo`      | EXTERNO, EFETIVO, COMISSIONADO, ESTAGIARIO, ELETIVO, TEMPORARIO                                  |
 | `SituacaoFuncional`| ATIVO, FERIAS, AFASTADO, LICENCA, CEDIDO, VACANCIA, EXONERADO, APOSENTADO                        |
 | `AcaoAuditoria`    | CRIAR, ATUALIZAR, EXCLUIR, CONCEDER_ACESSO, REVOGAR_ACESSO, LOGIN, LOGOUT, REDEFINIR_SENHA, BLOQUEAR_USUARIO, ATIVAR_USUARIO, NOMEAR_ADMIN_SETOR, REMOVER_ADMIN_SETOR, MUDAR_VINCULO, SINCRONIZAR_FICHA |
 

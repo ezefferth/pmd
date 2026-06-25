@@ -4,13 +4,15 @@ Monorepo que agrupa os sistemas municipais interdependentes de Dourados/MS.
 
 ## Sistemas
 
+Os subprojetos ficam em [`sistemas/`](sistemas/).
+
 | Sistema | Pasta | Papel |
 |---------|-------|-------|
-| **CUD** — Central de Usuários de Dourados | `cud/` | Provedor de identidade (IdP) e repositório central de usuários municipais |
-| **SPD** — Sistema de Protocolo Digital | `spd/` | Abertura, tramitação e acompanhamento de processos |
-| **RH** — Recursos Humanos | `rh/` | Dado-mestre funcional (cargos, vínculos, lotação); alimenta o CUD. Frequência (futuro) |
+| **CUD** — Central de Usuários de Dourados | `sistemas/cud/` | Provedor de identidade (IdP) e repositório central de usuários municipais |
+| **SPD** — Sistema de Protocolo Digital | `sistemas/spd/` | Abertura, tramitação e acompanhamento de processos |
+| **RH** — Recursos Humanos | `sistemas/rh/` | Dado-mestre funcional (cargos, vínculos, lotação); alimenta o CUD. Frequência (futuro) |
 
-> Infraestrutura compartilhada via Supabase local (PostgreSQL com schemas `cud`, `spd` e `rh`, Auth e Storage).
+> Infraestrutura compartilhada via Supabase local: **um único PostgreSQL** com schemas isolados `cud`, `spd` e `rh` (+ Auth e Storage). A comunicação entre sistemas é por **API HTTP**, não por acesso direto ao banco do outro.
 
 ## Documentação
 
