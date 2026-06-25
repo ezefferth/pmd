@@ -1,0 +1,16 @@
+{
+  "name": "pmd",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Suíte de sistemas da Prefeitura Municipal de Dourados/MS",
+  "scripts": {
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:status": "supabase status",
+    "db:reset": "supabase db reset",
+    "redis:up": "docker compose up -d redis",
+    "redis:down": "docker compose down",
+    "infra:up": "supabase start && docker compose up -d redis",
+    "infra:down": "docker compose down && supabase stop"
+  }
+}

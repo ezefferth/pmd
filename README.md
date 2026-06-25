@@ -28,6 +28,30 @@ Os subprojetos ficam em [`sistemas/`](sistemas/).
 - **SPD:** Next.js (App Router) · Prisma · PostgreSQL · Supabase Storage
 - **Infra:** Supabase self-hosted (local)
 
+## Infraestrutura local (Docker)
+
+Um único PostgreSQL (Supabase CLI) com schemas isolados `cud`/`spd`/`rh` + Redis (cache).
+
+```bash
+# pré-requisitos: Docker Desktop, Supabase CLI, pnpm
+
+npm run infra:up      # supabase start + redis (docker compose)
+npm run db:status     # chaves/URLs do Supabase → preencher os .env dos apps
+npm run db:reset      # recria o banco e aplica supabase/migrations (cria schemas)
+npm run infra:down    # derruba redis + supabase
+
+# tabelas de cada sistema (Prisma) — ex.: CUD
+cd sistemas/cud/auth-api && pnpm install && pnpm prisma:migrate --name init
+```
+
+| Serviço | Porta |
+|---------|-------|
+| PostgreSQL | 54322 |
+| Supabase API/Auth/Storage | 54321 |
+| Supabase Studio | 54323 |
+| Redis | 6379 |
+| CUD auth-api | 3002 |
+
 ## Convenção
 
 Nomenclatura **pt-BR** em todo código novo. Permissões no formato `MODULO:ACAO` (pt-BR) como contrato de integração entre os sistemas. Detalhes em [`CLAUDE.md`](CLAUDE.md).
