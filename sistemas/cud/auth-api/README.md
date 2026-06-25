@@ -36,4 +36,11 @@ prisma/
 └── schema.prisma        # modelos do CUD (schema PostgreSQL `cud`)
 ```
 
+## Autenticação (Supabase Auth)
+- `POST /api/v1/autenticacao/login` — `{ email, senha }` → `{ accessToken, usuario }`
+- `POST /api/v1/autenticacao/recuperar-senha` — `{ email }` (delegado ao Supabase)
+- `GET  /api/v1/autenticacao/eu` — dados do usuário autenticado (Bearer token)
+
+Guards: `JwtAuthGuard` (valida JWT HS256 do Supabase + carrega `Usuario` ATIVO) e `AdminGlobalGuard`.
+
 Próximos módulos: `usuarios`, `sistemas`, `perfis`, `acessos` (incl. `GET /acessos/verificar`).
