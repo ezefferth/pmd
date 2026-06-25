@@ -21,6 +21,7 @@ Os subprojetos ficam em [`sistemas/`](sistemas/).
 - [`rn-central-de-usuarios.md`](rn-central-de-usuarios.md) — regras de negócio do CUD
 - [`rn-recursos-humanos.md`](rn-recursos-humanos.md) — regras de negócio do RH
 - [`git-workflow.md`](git-workflow.md) — fluxo de git (issues, branches, commits, PRs)
+- [`progresso.md`](progresso.md) — **estado da implementação** e ponto de retomada
 
 ## Stack
 

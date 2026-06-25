@@ -1,7 +1,12 @@
 # PMD — Suíte de Sistemas da Prefeitura Municipal de Dourados/MS
 
-Workspace raiz que agrupa dois sistemas municipais interdependentes.
+Workspace raiz que agrupa três sistemas municipais interdependentes (em `sistemas/`): **CUD** (central de usuários), **SPD** (protocolo) e **RH** (recursos humanos).
 Trabalhe sempre dentro do subprojeto correto; este arquivo fornece o contexto de integração entre eles.
+
+> **Estado atual e ponto de retomada:** ver [`progresso.md`](progresso.md).
+> ⚠️ Algumas seções abaixo descrevem o estado-alvo original e podem citar detalhes legados
+> (ex.: Keycloak, autenticação própria de cidadão no SPD). As decisões vigentes estão nas RN
+> (`rn-central-de-usuarios.md`, `rn-protocolo.md`, `rn-recursos-humanos.md`) e em `progresso.md`.
 
 ---
 
