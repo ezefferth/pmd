@@ -23,6 +23,7 @@ criar "test"        "0e8a16" "Testes automatizados"
 # Escopo
 criar "cud"          "c5def5" "Central de Usuários de Dourados"
 criar "spd"          "bfd4f2" "Sistema de Protocolo Digital"
+criar "rh"           "b3e5d1" "Sistema de Recursos Humanos"
 criar "infra-escopo" "d4c5f9" "Infra compartilhada (Supabase, Redis)"
 criar "pmd"          "e8eaf6" "Transversal ao workspace"
 
