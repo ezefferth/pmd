@@ -1,6 +1,6 @@
 # 📋 Regras de Negócio — Sistema de Protocolo Digital (SPD)
 **Prefeitura Municipal de Dourados/MS — Secretaria Municipal de Fazenda**
-Versão: 2.1.0 | Stack: Next.js · Prisma ORM · PostgreSQL (Supabase Self-Hosted)
+Versão: 2.2.0 | Stack: Next.js · Prisma ORM · PostgreSQL (Supabase Self-Hosted)
 
 > **Convenção de nomenclatura (pt-BR):** todos os nomes de entidades, campos, flags, enums de domínio
 > e permissões deste documento seguem a convenção pt-BR obrigatória do ecossistema PMD (ver `CLAUDE.md` raiz).
@@ -93,15 +93,20 @@ Versão: 2.1.0 | Stack: Next.js · Prisma ORM · PostgreSQL (Supabase Self-Hoste
 
 - **RN-012:** Caso o Betha retorne erro (CPF inválido, duplicidade), o processo de abertura deve ser interrompido com mensagem clara ao usuário.
 
-### 3.3 Conta Cidadão (Portal Externo)
+### 3.3 Conta Cidadão (identidade no CUD)
 
-- O cidadão se **autoregistra** no portal. No cadastro, ele informa o CPF e vincula sua conta a um registro `ParteInteressada` existente.
+> **Decidido:** a central de usuários é **única**. O cidadão **não cria conta no SPD** — ele cria a
+> conta no **CUD** (`tipoVinculo = EXTERNO`). Com essa conta, acessa o SPD **como cidadão** para abrir
+> e acompanhar processos. O SPD **não possui** mais entidade `Citizen`; consome a identidade do CUD e
+> mantém apenas o vínculo do requerente com `ParteInteressada` (espelho Betha). Ver issue #1.
+
+- O cidadão **autoregistra a conta no CUD**. O SPD identifica o requerente pelo CPF da conta CUD e o vincula a um registro `ParteInteressada`.
 
 - **RN-013:** Se o CPF não existir em `ParteInteressada`, o sistema aciona o fluxo de criação no Betha antes de prosseguir (RN-010).
 
-- **RN-014:** A conta `Cidadao` está vinculada 1:1 com `ParteInteressada`. Um mesmo CPF só pode ter **uma conta ativa** no portal.
+- **RN-014:** O requerente corresponde a **uma conta única no CUD** (`EXTERNO`), associada por CPF ao `ParteInteressada`. Não há conta de cidadão duplicada no SPD.
 
-- **RN-015:** Após o cadastro, o cidadão recebe e-mail de verificação. Processos só podem ser abertos após `emailVerificado = true`.
+- **RN-015:** A abertura de processos exige conta CUD com **e-mail validado**. A validação de e-mail é feita no CUD (RN-CUD-007); o SPD apenas verifica o pré-requisito.
 
 ---
 
@@ -145,6 +150,18 @@ Versão: 2.1.0 | Stack: Next.js · Prisma ORM · PostgreSQL (Supabase Self-Hoste
 
 - **RN-021:** Se `tipoAtribuicao = AUTOMATICO`, utiliza algoritmo round-robin considerando carga atual de processos dos usuários do setor. Se o setor estiver vazio de usuários ativos, atribui ao responsável titular.
 
+### 4.6 Campos Adicionais Personalizados
+
+- Além do formulário comum, cada assunto pode definir **campos adicionais** próprios (`CampoAdicionalAssunto`), para coletar informações que não fazem parte do formulário padrão (ex.: um texto extra exigido só por aquele assunto).
+
+- Campos do `CampoAdicionalAssunto`: `assuntoId`, `rotulo`, `tipo` (`TipoCampo`), `placeholder?`, `obrigatorio`, `ordem`, `opcoes?` (para seleção).
+
+- Tipos (enum `TipoCampo`): `TEXTO`, `TEXTO_LONGO`, `NUMERO`, `DATA`, `SELECAO`.
+
+- **RN-080:** Na **criação/edição do assunto**, o gestor pode cadastrar campos adicionais, definindo rótulo, tipo, obrigatoriedade, ordem e um **placeholder** (texto de orientação de preenchimento exibido no campo vazio).
+
+- **RN-081:** Ao abrir o processo, os campos adicionais do assunto aparecem no formulário conforme a configuração (obrigatórios bloqueiam a abertura se vazios; placeholder é exibido). Os valores preenchidos são gravados em `ProcessoCampoAdicional` (`processoId`, `campoAdicionalId`, `valor`).
+
 ---
 
 ## 5. PROCESSO
@@ -159,17 +176,30 @@ Versão: 2.1.0 | Stack: Next.js · Prisma ORM · PostgreSQL (Supabase Self-Hoste
 
 ### 5.2 Abertura de Processo
 
-**Fluxo de abertura externa (cidadão):**
-1. Cidadão autenticado seleciona assunto disponível (`disponivelParaNovasAberturas = true AND permiteAberturaExterna = true`)
-2. Sistema valida documentos obrigatórios (`AssuntoDocumento.obrigatorio = true`)
-3. Sistema verifica se há guias obrigatórias (`AssuntoGuiaPagamento.obrigatorio = true`)
-4. Se `tramitarComPendenciaPagamento = false` e há guia pendente → bloqueia abertura
-5. Gera `numeroProtocolo` (RN-022/023)
-6. Cria lançamento no Betha via API (campo `bethaLancamentoId`)
-7. Direciona para `organogramaDestinoId`
-8. Aplica lógica de atribuição do assunto (RN-021)
-9. Registra `MovimentacaoProcesso` tipo `CRIADO`
-10. Dispara notificações configuradas
+**Fluxo de abertura externa (cidadão) — seleção em cascata:**
+1. Cidadão autenticado (conta CUD `EXTERNO`, e-mail validado) seleciona o **local da solicitação** (secretaria)
+2. Seleciona o **assunto** vinculado àquela secretaria (`disponivelParaNovasAberturas = true AND permiteAberturaExterna = true`)
+3. Informa o **motivo da solicitação** (`Process.motivo`)
+4. Sistema exibe os **campos obrigatórios**: dados do cidadão (pré-preenchidos do CUD) + campos adicionais do assunto (RN-080/081)
+5. Sistema valida documentos obrigatórios (`AssuntoDocumento.obrigatorio = true`)
+6. Sistema verifica se há guias obrigatórias (`AssuntoGuiaPagamento.obrigatorio = true`)
+7. Se `tramitarComPendenciaPagamento = false` e há guia pendente → bloqueia abertura
+8. Gera `numeroProtocolo` (RN-022/023)
+9. Cria lançamento no Betha via API (campo `bethaLancamentoId`)
+10. Direciona para `organogramaDestinoId`
+11. Aplica lógica de atribuição do assunto (RN-021)
+12. Registra `MovimentacaoProcesso` tipo `CRIADO`
+13. Dispara notificações configuradas
+
+**RN-082 (seleção em cascata):** A abertura externa segue a ordem **secretaria → assunto → motivo**. Só aparecem assuntos da secretaria escolhida com `permiteAberturaExterna = true` e `disponivelParaNovasAberturas = true`.
+
+**RN-083 (dados do cidadão pré-preenchidos do CUD):** O formulário traz os dados do cidadão vindos da **conta CUD**, pré-preenchidos:
+- **Obrigatórios:** nome, CPF, e-mail (já validado), CEP, estado, município, endereço.
+- **Opcionais:** RG, órgão emissor, data de emissão, UF de emissão, sexo, data de nascimento, e-mail secundário, telefone, telefone secundário.
+
+**RN-084 (edição e dado-mestre no CUD):** Todos os campos pré-preenchidos são **editáveis no formulário, exceto o e-mail**. Para alterar **e-mail** (chave de identidade) — e os demais dados-mestre de contato — o cidadão acessa o **CUD** e revalida (novo e-mail exige nova validação, RN-CUD-007). Ajustes feitos no formulário valem para a solicitação/`ParteInteressada`; a fonte de verdade da identidade é o CUD.
+
+**RN-085 (campos adicionais no formulário):** Entre os campos exibidos no passo 4, constam os **campos adicionais personalizados** do assunto, respeitando obrigatoriedade e placeholder (RN-080/081).
 
 **RN-025:** Abertura por **Pessoa Jurídica** não é permitida diretamente. A PJ deve ser inserida como parte interessada (`ProcessoInteressado`), sendo o requerente sempre uma PF.
 
@@ -533,7 +563,7 @@ ConfiguracaoSistema:
 | `Profile`                | `Perfil`                            |
 | `AccessGroup`            | `GrupoAcesso`                       |
 | `Party`                  | `ParteInteressada`                  |
-| `Citizen`                | `Cidadao`                           |
+| `Citizen`                | ~~`Cidadao`~~ **descontinuado** — identidade no CUD (issue #1) |
 | `Subject`                | `Assunto`                           |
 | `SubjectDocument`        | `AssuntoDocumento`                  |
 | `SubjectPaymentGuide`    | `AssuntoGuiaPagamento`              |
@@ -556,6 +586,10 @@ ConfiguracaoSistema:
 `FeriadoMunicipal`, `ProcessoVinculo`, `AssinaturaDocumento`, `PendenciaProcesso`, `CredencialAcessoProcesso`.
 Novos campos: `Assunto.prazoLegalDias`, `Assunto.tipoContagemPrazo`, `Processo.dataLimite`, `Processo.estaAtrasado`, `Processo.nivelSigilo`, e em documento `numeroOrdem` / `numeroFolhaInicial` / `numeroFolhaFinal`.
 
+### Novas entidades (v2.2)
+`CampoAdicionalAssunto`, `ProcessoCampoAdicional`. Novo campo: `Processo.motivo`.
+Identidade do cidadão **descontinuada no SPD** — consumida do CUD (`tipoVinculo = EXTERNO`, issue #1).
+
 ### Enums de domínio
 | Inglês (v1)        | pt-BR (v2)                                                                                          |
 |--------------------|----------------------------------------------------------------------------------------------------|
@@ -571,6 +605,7 @@ Novos campos: `Assunto.prazoLegalDias`, `Assunto.tipoContagemPrazo`, `Processo.d
 | —                  | `TipoPendencia`: DOCUMENTO, PAGAMENTO, INFORMACAO                                                   |
 | —                  | `StatusPendencia`: ABERTA, CUMPRIDA, EXPIRADA, CANCELADA                                            |
 | —                  | `NivelSigilo`: PUBLICO, RESTRITO, SIGILOSO, SECRETO                                                 |
+| —                  | `TipoCampo`: TEXTO, TEXTO_LONGO, NUMERO, DATA, SELECAO                                              |
 
 ### Permissões (`MODULO:ACAO`) — agora em pt-BR
 | Inglês (v1) | pt-BR (v2)                                                                                            |
