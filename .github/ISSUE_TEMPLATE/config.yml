@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📋 Regras de negócio (SPD)
+    url: https://github.com/
+    about: "Consulte rn-protocolo.md antes de abrir issues do protocolo."
+  - name: 📋 Regras de negócio (CUD)
+    url: https://github.com/
+    about: "Consulte rn-central-de-usuarios.md antes de abrir issues da central de usuários."
