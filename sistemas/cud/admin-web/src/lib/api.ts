@@ -17,6 +17,29 @@ export async function apiGet<T>(caminho: string): Promise<T> {
   return resposta.json() as Promise<T>
 }
 
+/** POST/PATCH/DELETE autenticado na auth-api (server-side). */
+export async function apiSend<T = unknown>(
+  metodo: 'POST' | 'PATCH' | 'DELETE',
+  caminho: string,
+  corpo?: unknown,
+): Promise<T> {
+  const token = (await cookies()).get(COOKIE_SESSAO)?.value
+  const resposta = await fetch(`${BASE}${caminho}`, {
+    method: metodo,
+    headers: {
+      'content-type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: corpo === undefined ? undefined : JSON.stringify(corpo),
+    cache: 'no-store',
+  })
+  if (!resposta.ok) {
+    const texto = await resposta.text()
+    throw new Error(`Falha ${resposta.status}: ${texto}`)
+  }
+  return resposta.json().catch(() => ({})) as Promise<T>
+}
+
 export function urlAuthApi(caminho: string): string {
   return `${BASE}${caminho}`
 }

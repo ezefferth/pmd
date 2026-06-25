@@ -4,8 +4,13 @@ import { SairButton } from '@/components/sair-button'
 const navAtiva = [
   { href: '/', rotulo: 'Dashboard' },
   { href: '/usuarios', rotulo: 'Usuários' },
+  { href: '/sistemas', rotulo: 'Sistemas' },
+  { href: '/perfis', rotulo: 'Perfis' },
+  { href: '/acessos', rotulo: 'Acessos' },
+  { href: '/auditoria', rotulo: 'Auditoria' },
+  { href: '/configuracoes', rotulo: 'Configurações' },
 ]
-const navEmBreve = ['Sistemas', 'Perfis', 'Acessos', 'Auditoria', 'Configurações']
+const navEmBreve: string[] = []
 
 export default function PainelLayout({
   children,

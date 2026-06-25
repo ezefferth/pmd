@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { apiGet } from '@/lib/api'
 
 interface UsuarioResumo {
@@ -28,7 +29,15 @@ export default async function UsuariosPage() {
 
   return (
     <section>
-      <h1 className="mb-6 text-2xl font-bold text-secundaria">Usuários</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-secundaria">Usuários</h1>
+        <Link
+          href="/usuarios/novo"
+          className="rounded bg-primaria px-4 py-2 text-sm font-medium text-white"
+        >
+          Novo usuário
+        </Link>
+      </div>
 
       {erro && (
         <p className="text-sm text-red-600">
@@ -49,8 +58,12 @@ export default async function UsuariosPage() {
             </thead>
             <tbody>
               {dados.itens.map((usuario) => (
-                <tr key={usuario.id} className="border-t">
-                  <td className="px-3 py-2">{usuario.nome}</td>
+                <tr key={usuario.id} className="border-t hover:bg-black/5">
+                  <td className="px-3 py-2">
+                    <Link href={`/usuarios/${usuario.id}`} className="text-primaria underline">
+                      {usuario.nome}
+                    </Link>
+                  </td>
                   <td className="px-3 py-2">{usuario.email}</td>
                   <td className="px-3 py-2">{usuario.tipoVinculo}</td>
                   <td className="px-3 py-2">{usuario.status}</td>
