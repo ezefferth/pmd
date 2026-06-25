@@ -11,6 +11,15 @@
     "redis:up": "docker compose up -d redis",
     "redis:down": "docker compose down",
     "infra:up": "supabase start && docker compose up -d redis",
-    "infra:down": "docker compose down && supabase stop"
+    "infra:down": "docker compose down && supabase stop",
+    "dev": "concurrently -k -n cud-api -c blue \"pnpm:dev:cud-api\"",
+    "dev:cud-web": "pnpm -C sistemas/cud/admin-web dev",
+    "dev:cud-api": "pnpm -C sistemas/cud/auth-api dev",
+    "dev:spd": "pnpm -C sistemas/spd/web dev",
+    "dev:rh-web": "pnpm -C sistemas/rh/web dev",
+    "dev:rh-api": "pnpm -C sistemas/rh/api dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
   }
 }
