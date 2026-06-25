@@ -44,13 +44,37 @@ npm run infra:down    # derruba redis + supabase
 cd sistemas/cud/auth-api && pnpm install && pnpm prisma:migrate --name init
 ```
 
-| Serviço | Porta |
-|---------|-------|
-| PostgreSQL | 54322 |
+## Rodar os apps (dev)
+
+Scripts na raiz (cada um roda o app no diretório certo, com sua porta):
+
+```bash
+pnpm install              # instala 'concurrently' na raiz (para `dev` combinado)
+
+pnpm dev                  # roda os apps existentes em paralelo
+pnpm dev:cud-web          # admin-web do CUD     (quando criado)
+pnpm dev:cud-api          # auth-api do CUD
+pnpm dev:spd              # web do protocolo      (quando criado)
+pnpm dev:rh-web           # web do RH             (quando criado)
+pnpm dev:rh-api           # api do RH             (quando criado)
+```
+
+## Portas
+
+Convenção: **cada sistema reserva um par (web, API)** — a API fica na porta **subsequente** à web.
+
+| Sistema | Web | API |
+|---------|-----|-----|
+| CUD | 3000 | 3001 |
+| SPD (protocolo) | 3002 | 3003 (reservado) |
+| RH | 3004 | 3005 |
+
+| Infra | Porta |
+|-------|-------|
 | Supabase API/Auth/Storage | 54321 |
+| PostgreSQL | 54322 |
 | Supabase Studio | 54323 |
 | Redis | 6379 |
-| CUD auth-api | 3002 |
 
 ## Convenção
 

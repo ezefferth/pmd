@@ -302,10 +302,14 @@ Tarefas de integração (Fase 1 a 4 acima). Nesse caso:
 | PostgreSQL direto | 54322 |
 | Redis | 6379 |
 | CUD admin-web | 3000 |
-| SPD web | 3001 |
-| CUD auth-api | 3002 |
+| CUD auth-api | 3001 |
+| SPD web (protocolo) | 3002 |
+| SPD api | 3003 (reservado) |
+| RH web | 3004 |
+| RH api | 3005 |
 
-> Supabase Studio (:54323) visualiza schemas `cud` e `spd` em um único lugar.
+> Convenção: cada sistema reserva um par (web, API) — a API fica na **porta subsequente** à web.
+> Supabase Studio (:54323) visualiza os schemas `cud`/`spd`/`rh` em um único lugar.
 
 ---
 
