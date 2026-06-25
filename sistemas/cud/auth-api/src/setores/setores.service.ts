@@ -4,14 +4,19 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { Usuario } from '@prisma/client'
+import { AcaoAuditoria, Usuario } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
+import { AuditoriaService } from '../auditoria/auditoria.service'
+import { ContextoRequisicao } from '../comum/contexto'
 import { CriarSetorDto } from './dto/criar-setor.dto'
 import { AtualizarSetorDto } from './dto/atualizar-setor.dto'
 
 @Injectable()
 export class SetoresService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditoria: AuditoriaService,
+  ) {}
 
   // ── CRUD ────────────────────────────────────────────────────
 
@@ -43,21 +48,35 @@ export class SetoresService {
 
   // ── Administradores (RN-CUD-038/041) ────────────────────────
 
-  async nomearAdmin(setorId: string, usuarioId: string, ator: Usuario) {
+  async nomearAdmin(setorId: string, usuarioId: string, contexto: ContextoRequisicao) {
+    const ator = this.exigirAtor(contexto)
     await this.garantirExiste(setorId)
     await this.garantirPodeAdministrar(ator, setorId)
-    return this.prisma.administradorSetor.upsert({
+    const admin = await this.prisma.administradorSetor.upsert({
       where: { setorId_usuarioId: { setorId, usuarioId } },
       create: { setorId, usuarioId, nomeadoPorId: ator.id, ativo: true },
       update: { ativo: true, nomeadoPorId: ator.id },
     })
+    await this.auditoria.registrar(contexto, {
+      acao: AcaoAuditoria.NOMEAR_ADMIN_SETOR,
+      entidade: 'AdministradorSetor',
+      entidadeId: admin.id,
+      valorNovo: { setorId, usuarioId },
+    })
+    return admin
   }
 
-  async removerAdmin(setorId: string, usuarioId: string, ator: Usuario) {
+  async removerAdmin(setorId: string, usuarioId: string, contexto: ContextoRequisicao) {
+    const ator = this.exigirAtor(contexto)
     await this.garantirPodeAdministrar(ator, setorId)
     await this.prisma.administradorSetor.updateMany({
       where: { setorId, usuarioId },
       data: { ativo: false },
+    })
+    await this.auditoria.registrar(contexto, {
+      acao: AcaoAuditoria.REMOVER_ADMIN_SETOR,
+      entidade: 'AdministradorSetor',
+      entidadeId: `${setorId}:${usuarioId}`,
     })
     return { removido: true }
   }
@@ -73,14 +92,22 @@ export class SetoresService {
 
   // ── Lotação ─────────────────────────────────────────────────
 
-  async definirLotacao(setorId: string, usuarioId: string, ator: Usuario) {
+  async definirLotacao(setorId: string, usuarioId: string, contexto: ContextoRequisicao) {
+    const ator = this.exigirAtor(contexto)
     await this.garantirExiste(setorId)
     await this.garantirPodeAdministrar(ator, setorId)
-    return this.prisma.usuario.update({
+    const usuario = await this.prisma.usuario.update({
       where: { id: usuarioId },
       data: { setorId },
       select: { id: true, nome: true, setorId: true },
     })
+    await this.auditoria.registrar(contexto, {
+      acao: AcaoAuditoria.ATUALIZAR,
+      entidade: 'Usuario',
+      entidadeId: usuarioId,
+      valorNovo: { setorId },
+    })
+    return usuario
   }
 
   // ── Escopo (RN-CUD-039) ─────────────────────────────────────
@@ -103,6 +130,11 @@ export class SetoresService {
       for (const filho of filhosPorPai.get(atual) ?? []) pilha.push(filho)
     }
     return [...escopo]
+  }
+
+  private exigirAtor(contexto: ContextoRequisicao): Usuario {
+    if (!contexto.ator) throw new ForbiddenException('Requer autenticação')
+    return contexto.ator
   }
 
   private async garantirPodeAdministrar(ator: Usuario, setorId: string) {

@@ -7,10 +7,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common'
-import { Usuario } from '@prisma/client'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { AdminGlobalGuard } from '../auth/guards/admin-global.guard'
-import { UsuarioAtual } from '../auth/decorators/usuario-atual.decorator'
+import { Contexto, ContextoRequisicao } from '../comum/contexto'
 import { AcessosService } from './acessos.service'
 import { ConcederAcessoDto } from './dto/conceder-acesso.dto'
 import { RevogarAcessoDto } from './dto/revogar-acesso.dto'
@@ -29,14 +28,14 @@ export class AcessosController {
 
   @UseGuards(JwtAuthGuard, AdminGlobalGuard)
   @Post()
-  conceder(@Body() dto: ConcederAcessoDto, @UsuarioAtual() admin: Usuario) {
-    return this.acessos.conceder(dto, admin.id)
+  conceder(@Body() dto: ConcederAcessoDto, @Contexto() contexto: ContextoRequisicao) {
+    return this.acessos.conceder(dto, contexto)
   }
 
   @UseGuards(JwtAuthGuard, AdminGlobalGuard)
   @Post('revogar')
-  revogar(@Body() dto: RevogarAcessoDto) {
-    return this.acessos.revogar(dto.usuarioId, dto.sistemaId)
+  revogar(@Body() dto: RevogarAcessoDto, @Contexto() contexto: ContextoRequisicao) {
+    return this.acessos.revogar(dto.usuarioId, dto.sistemaId, contexto)
   }
 
   @UseGuards(JwtAuthGuard, AdminGlobalGuard)
