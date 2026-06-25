@@ -95,6 +95,12 @@ Versão: 2.1.0 | Stack: Next.js · Prisma ORM · PostgreSQL (Supabase Self-Hoste
 
 ### 3.3 Conta Cidadão (Portal Externo)
 
+> **⚠️ Mudança estrutural em andamento (a confirmar na revisão):** a identidade do cidadão/externo
+> migra do `Citizen` próprio do SPD para o **CUD** (`tipoVinculo = EXTERNO`). O portal passará a
+> autenticar externos via CUD; o `Cidadao` local tende a ser substituído pela conta externa do CUD,
+> mantendo o vínculo com `ParteInteressada` (espelho Betha). Rastreado em issue de reorganização do SPD.
+> Rastreado na issue #1. As RN abaixo descrevem o modelo **atual** até a migração.
+
 - O cidadão se **autoregistra** no portal. No cadastro, ele informa o CPF e vincula sua conta a um registro `ParteInteressada` existente.
 
 - **RN-013:** Se o CPF não existir em `ParteInteressada`, o sistema aciona o fluxo de criação no Betha antes de prosseguir (RN-010).
