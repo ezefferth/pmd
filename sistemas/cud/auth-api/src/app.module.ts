@@ -8,6 +8,7 @@ import { UsuariosModule } from './usuarios/usuarios.module'
 import { SistemasModule } from './sistemas/sistemas.module'
 import { PerfisModule } from './perfis/perfis.module'
 import { AcessosModule } from './acessos/acessos.module'
+import { SetoresModule } from './setores/setores.module'
 import { AppController } from './app.controller'
 
 @Module({
@@ -21,6 +22,7 @@ import { AppController } from './app.controller'
     SistemasModule,
     PerfisModule,
     AcessosModule,
+    SetoresModule,
   ],
   controllers: [AppController],
 })
