@@ -1,0 +1,245 @@
+// CUD — Central de Usuários de Dourados
+// Schema Prisma da auth-api. Base: rn-central-de-usuarios.md (v1.4.0).
+// Schema PostgreSQL isolado: `cud` (definido em DATABASE_URL ?schema=cud).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Enums
+// ──────────────────────────────────────────────────────────────
+
+/// Status da conta — controla o login (seção 1.2)
+enum StatusUsuario {
+  PENDENTE_ATIVACAO
+  ATIVO
+  INATIVO
+  BLOQUEADO
+}
+
+/// Tipo de vínculo do usuário (seção 11.1). TEMPORARIO incluído para paridade com o RH.
+enum TipoVinculo {
+  EXTERNO
+  EFETIVO
+  COMISSIONADO
+  ESTAGIARIO
+  ELETIVO
+  TEMPORARIO
+}
+
+/// Situação funcional do servidor — espelho do RH (seção 11.3)
+enum SituacaoFuncional {
+  ATIVO
+  FERIAS
+  AFASTADO
+  LICENCA
+  CEDIDO
+  VACANCIA
+  EXONERADO
+  APOSENTADO
+}
+
+/// Ações registradas em auditoria (seção 7)
+enum AcaoAuditoria {
+  CRIAR
+  ATUALIZAR
+  EXCLUIR
+  CONCEDER_ACESSO
+  REVOGAR_ACESSO
+  LOGIN
+  LOGOUT
+  REDEFINIR_SENHA
+  BLOQUEAR_USUARIO
+  ATIVAR_USUARIO
+  NOMEAR_ADMIN_SETOR
+  REMOVER_ADMIN_SETOR
+  MUDAR_VINCULO
+  SINCRONIZAR_FICHA
+}
+
+// ──────────────────────────────────────────────────────────────
+// Identidade
+// ──────────────────────────────────────────────────────────────
+
+/// Usuário municipal — ponto único de verdade de identidade (seção 1)
+model Usuario {
+  id            String        @id @default(uuid())
+  nome          String
+  cpf           String        @unique
+  email         String        @unique
+  matricula     String?       @unique
+  telefone      String?
+  // id do Supabase Auth (sub do JWT) — chave de correlação com os sistemas (RN-CUD-002)
+  authId        String?       @unique
+  status        StatusUsuario @default(PENDENTE_ATIVACAO)
+  tipoVinculo   TipoVinculo   @default(EXTERNO)
+  ehAdminGlobal Boolean       @default(false)
+  ativo         Boolean       @default(true)
+
+  // Lotação (setor onde está alocado) — RN-CUD-037
+  setorId String?
+  setor   Setor?  @relation("SetorUsuarios", fields: [setorId], references: [id])
+
+  fichaFuncional    FichaFuncional?
+  acessos           Acesso[]             @relation("AcessoUsuario")
+  acessosConcedidos Acesso[]             @relation("AcessoConcedidoPor")
+  administracoes    AdministradorSetor[] @relation("AdminSetorUsuario")
+  nomeacoesFeitas   AdministradorSetor[] @relation("AdminSetorNomeadoPor")
+  auditorias        LogAuditoria[]
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@index([setorId])
+}
+
+// ──────────────────────────────────────────────────────────────
+// Sistemas, Perfis e Acessos
+// ──────────────────────────────────────────────────────────────
+
+/// Sistema consumidor do CUD (ex.: spd) — seção 2
+model Sistema {
+  id        String  @id @default(uuid())
+  nome      String
+  slug      String  @unique
+  urlBase   String?
+  descricao String?
+  ativo     Boolean @default(true)
+
+  perfis  Perfil[]
+  acessos Acesso[]
+
+  criadoEm DateTime @default(now())
+}
+
+/// Perfil de um sistema — agrupa permissões MODULO:ACAO (seção 3)
+model Perfil {
+  id               String   @id @default(uuid())
+  sistemaId        String
+  nome             String
+  slug             String
+  descricao        String?
+  permissoes       String[] // formato "MODULO:ACAO" (pt-BR) ou "*"
+  ehAdministrativo Boolean  @default(false)
+  permiteExterno   Boolean  @default(false) // RN-CUD-049
+  ativo            Boolean  @default(true)
+
+  sistema Sistema  @relation(fields: [sistemaId], references: [id], onDelete: Cascade)
+  acessos Acesso[]
+
+  @@unique([sistemaId, slug])
+}
+
+/// Concessão de acesso: usuário × sistema × perfil (seção 4)
+model Acesso {
+  id            String    @id @default(uuid())
+  usuarioId     String
+  sistemaId     String
+  perfilId      String
+  ativo         Boolean   @default(true)
+  concedidoPorId String?
+  dataConcessao DateTime  @default(now())
+  dataExpiracao DateTime?
+  motivo        String?
+
+  usuario     Usuario  @relation("AcessoUsuario", fields: [usuarioId], references: [id], onDelete: Cascade)
+  sistema     Sistema  @relation(fields: [sistemaId], references: [id])
+  perfil      Perfil   @relation(fields: [perfilId], references: [id])
+  concedidoPor Usuario? @relation("AcessoConcedidoPor", fields: [concedidoPorId], references: [id])
+
+  // Estado atual por (usuário, sistema); histórico fica em LogAuditoria (RN-CUD-016/017)
+  @@unique([usuarioId, sistemaId])
+  @@index([sistemaId])
+  @@index([perfilId])
+}
+
+// ──────────────────────────────────────────────────────────────
+// Estrutura organizacional e administração hierárquica
+// ──────────────────────────────────────────────────────────────
+
+/// Setor — árvore organizacional (seção 10). Espelho do RH via rhId.
+model Setor {
+  id       String  @id @default(uuid())
+  nome     String
+  sigla    String?
+  paiId    String?
+  rhId     String? @unique // origem no sistema de RH (UnidadeOrganizacional)
+  ativo    Boolean @default(true)
+
+  pai    Setor?  @relation("SetorHierarquia", fields: [paiId], references: [id])
+  filhos Setor[] @relation("SetorHierarquia")
+
+  usuarios       Usuario[]            @relation("SetorUsuarios")
+  administradores AdministradorSetor[]
+  fichasLotadas  FichaFuncional[]     @relation("FichaSetorLotacao")
+
+  criadoEm DateTime @default(now())
+
+  @@index([paiId])
+}
+
+/// Administrador de setor — administra o setor e descendentes (seção 10.2)
+model AdministradorSetor {
+  id           String   @id @default(uuid())
+  setorId      String
+  usuarioId    String
+  ativo        Boolean  @default(true)
+  nomeadoPorId String?
+  dataNomeacao DateTime @default(now())
+
+  setor      Setor    @relation(fields: [setorId], references: [id], onDelete: Cascade)
+  usuario    Usuario  @relation("AdminSetorUsuario", fields: [usuarioId], references: [id], onDelete: Cascade)
+  nomeadoPor Usuario? @relation("AdminSetorNomeadoPor", fields: [nomeadoPorId], references: [id])
+
+  @@unique([setorId, usuarioId])
+  @@index([usuarioId])
+}
+
+// ──────────────────────────────────────────────────────────────
+// Ficha funcional (servidor) — dado-mestre no RH (seção 11.3)
+// ──────────────────────────────────────────────────────────────
+
+model FichaFuncional {
+  id               String            @id @default(uuid())
+  usuarioId        String            @unique
+  matricula        String?
+  cargo            String?
+  setorLotacaoId   String?
+  regimeJuridico   String?
+  situacaoFuncional SituacaoFuncional @default(ATIVO)
+  dataAdmissao     DateTime?
+  dataExoneracao   DateTime?
+  rhId             String?           @unique // id do servidor no RH
+  atualizadoEm     DateTime          @updatedAt
+
+  usuario     Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  setorLotacao Setor? @relation("FichaSetorLotacao", fields: [setorLotacaoId], references: [id])
+}
+
+// ──────────────────────────────────────────────────────────────
+// Auditoria — imutável (seção 7)
+// ──────────────────────────────────────────────────────────────
+
+model LogAuditoria {
+  id            String        @id @default(uuid())
+  atorId        String?
+  acao          AcaoAuditoria
+  entidade      String
+  entidadeId    String
+  valorAnterior Json?
+  valorNovo     Json?
+  enderecoIp    String?
+  userAgent     String?
+  criadoEm      DateTime      @default(now())
+
+  ator Usuario? @relation(fields: [atorId], references: [id])
+
+  @@index([atorId])
+  @@index([entidade, entidadeId])
+}

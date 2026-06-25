@@ -70,11 +70,17 @@ async function criarUsuario(dto: CriarUsuarioDto) { ... }
 
 ```
 PMD/
-├── cud/     # Banco Central de Usuários (BCU) — auth + identidade de todos os sistemas
-└── spd/     # Sistema de Protocolo Digital — tramitação de processos
+├── sistemas/
+│   ├── cud/   # Central de Usuários de Dourados — auth + identidade de todos os sistemas
+│   ├── spd/   # Sistema de Protocolo Digital — tramitação de processos
+│   └── rh/    # Recursos Humanos — dado-mestre funcional (alimenta o CUD)
+└── supabase/  # infraestrutura local compartilhada (PostgreSQL + Auth + Storage)
 ```
 
-Cada subprojeto tem seu próprio `CLAUDE.md` com stack, schema, regras e comandos detalhados.
+> Os subprojetos ficam sob `sistemas/`. Comandos `cd cud`/`cd spd` neste documento referem-se a
+> `sistemas/cud`/`sistemas/spd` (paths serão consolidados conforme cada app for criado).
+
+Cada subprojeto terá seu próprio `CLAUDE.md` com stack, schema, regras e comandos detalhados.
 Leia o CLAUDE.md do subprojeto antes de editar qualquer arquivo dentro dele.
 
 ---
