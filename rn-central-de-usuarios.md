@@ -1,6 +1,6 @@
 # 📋 Regras de Negócio — Central de Usuários de Dourados (CUD)
 **Prefeitura Municipal de Dourados/MS**
-Versão: 1.3.0 | Stack: **monorepo** — `auth-api` (NestJS · Fastify) + `admin-web` (Next.js App Router) · Prisma ORM · PostgreSQL (Supabase Self-Hosted) · Redis · Supabase Auth (GoTrue)
+Versão: 1.4.0 | Stack: **monorepo** — `auth-api` (NestJS · Fastify) + `admin-web` (Next.js App Router) · Prisma ORM · PostgreSQL (Supabase Self-Hosted) · Redis · Supabase Auth (GoTrue)
 
 > **Papel:** o CUD é o **provedor de identidade (IdP)** e o **repositório central de usuários municipais**.
 > É o ponto único de verdade: todo sistema do município (a começar pelo SPD) consulta o CUD para saber
@@ -296,7 +296,7 @@ Todo usuário se autoregistra e nasce **externo**. Para se tornar servidor (ou o
 
 - `FichaFuncional` (1:1 com `Usuario`, **somente internos**): `usuarioId`, `matricula`, `cargo`, `setorLotacaoId` (→ `Setor`), `regimeJuridico`, `situacaoFuncional`, `dataAdmissao`, `dataExoneracao?`, `rhId`, `atualizadoEm`.
 
-- Situação (enum `SituacaoFuncional`): `ATIVO`, `AFASTADO`, `LICENCA`, `EXONERADO`, `APOSENTADO`.
+- Situação (enum `SituacaoFuncional`, espelho do RH): `ATIVO`, `FERIAS`, `AFASTADO`, `LICENCA`, `CEDIDO`, `VACANCIA`, `EXONERADO`, `APOSENTADO`.
 
 - **RN-CUD-052:** A ficha existe **somente** para internos (`ehInterno = true`); externos não possuem ficha.
 
@@ -305,6 +305,15 @@ Todo usuário se autoregistra e nasce **externo**. Para se tornar servidor (ou o
 - **RN-CUD-054:** A sincronização do RH pode definir/atualizar `tipoVinculo`, a lotação (`setorLotacaoId`, que reflete em `Usuario.setorId` — seção 10) e `situacaoFuncional`. `EXONERADO`/`APOSENTADO` **aciona o rebaixamento** da RN-CUD-051 (rebaixa para `EXTERNO` e revoga acessos internos).
 
 - **RN-CUD-055:** O `admin-web` **exibe** a ficha funcional; edição direta é restrita (preferir o fluxo do RH). Acesso e alterações da ficha seguem auditoria (seção 7).
+
+### 11.4 Status de Conta × Situação Funcional
+
+- **RN-CUD-059:** O usuário possui **dois indicadores distintos**:
+  - `status` de conta (`StatusUsuario`: `PENDENTE_ATIVACAO`/`ATIVO`/`INATIVO`/`BLOQUEADO`) — controla o **login**.
+  - `situacaoFuncional` (servidor) — **sincronizada do RH**, refletindo se o servidor está ativo ou inativo (`FERIAS`, `AFASTADO`, `LICENCA`, `VACANCIA`, etc.). Externos não possuem situação funcional.
+  Na criação/manutenção do usuário, a situação funcional é definida pela ficha (origem RH, RN-CUD-053).
+
+- **RN-CUD-060:** Servidor em `FERIAS`/`AFASTADO`/`LICENCA`/`VACANCIA` é **funcionalmente inativo** (`estaFuncionalmenteAtivo = false`): mantém a conta, mas os sistemas consumidores (ex.: SPD) o tratam como **indisponível para novas atribuições/atuação**. `EXONERADO`/`APOSENTADO` aciona o rebaixamento para `EXTERNO` (RN-CUD-054). A mudança de situação funcional é propagada aos sistemas em tempo hábil.
 
 ---
 
@@ -357,7 +366,7 @@ ConfiguracaoSistema (CUD):
 |--------------------|-------------------------------------------------------------------------------------------------|
 | `StatusUsuario`    | PENDENTE_ATIVACAO, ATIVO, INATIVO, BLOQUEADO                                                     |
 | `TipoVinculo`      | EXTERNO, EFETIVO, COMISSIONADO, ESTAGIARIO, ELETIVO                                              |
-| `SituacaoFuncional`| ATIVO, AFASTADO, LICENCA, EXONERADO, APOSENTADO                                                  |
+| `SituacaoFuncional`| ATIVO, FERIAS, AFASTADO, LICENCA, CEDIDO, VACANCIA, EXONERADO, APOSENTADO                        |
 | `AcaoAuditoria`    | CRIAR, ATUALIZAR, EXCLUIR, CONCEDER_ACESSO, REVOGAR_ACESSO, LOGIN, LOGOUT, REDEFINIR_SENHA, BLOQUEAR_USUARIO, ATIVAR_USUARIO, NOMEAR_ADMIN_SETOR, REMOVER_ADMIN_SETOR, MUDAR_VINCULO, SINCRONIZAR_FICHA |
 
 > **Decidido (v1.3):** a central é **única**. Externos (incl. cidadãos/empresas) existem **no CUD** como `tipoVinculo = EXTERNO`, autoregistrados. O SPD **não tem mais** entidade `Citizen` — autentica o cidadão via CUD (issue #1). Servidores ganham vínculo interno + ficha funcional (seção 11).

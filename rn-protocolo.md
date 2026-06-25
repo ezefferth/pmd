@@ -1,6 +1,6 @@
 # 📋 Regras de Negócio — Sistema de Protocolo Digital (SPD)
 **Prefeitura Municipal de Dourados/MS — Secretaria Municipal de Fazenda**
-Versão: 2.2.0 | Stack: Next.js · Prisma ORM · PostgreSQL (Supabase Self-Hosted)
+Versão: 2.3.0 | Stack: Next.js · Prisma ORM · PostgreSQL (Supabase Self-Hosted)
 
 > **Convenção de nomenclatura (pt-BR):** todos os nomes de entidades, campos, flags, enums de domínio
 > e permissões deste documento seguem a convenção pt-BR obrigatória do ecossistema PMD (ver `CLAUDE.md` raiz).
@@ -41,6 +41,8 @@ Versão: 2.2.0 | Stack: Next.js · Prisma ORM · PostgreSQL (Supabase Self-Hoste
 
 - Servidores comuns são vinculados a setores via `UsuarioOrganograma`. Um servidor pode estar em **mais de um setor**, mas terá um setor primário (`ehPrimario = true`).
 
+- Cada responsável pode ter um **suplente/usuário secundário** pré-declarado (`ResponsavelOrganograma.substitutoId`), que assume quando o titular ficar **funcionalmente inativo** (RN-087).
+
 ### 1.3 Configuração de Atribuição
 
 - Cada setor possui uma configuração `ConfiguracaoAtribuicaoOrganograma` com tipo de atribuição padrão (enum `TipoAtribuicao`):
@@ -53,6 +55,8 @@ Versão: 2.2.0 | Stack: Next.js · Prisma ORM · PostgreSQL (Supabase Self-Hoste
   | `USUARIOS_ESPECIFICOS` | Atribui apenas aos usuários listados no assunto       |
 
 - **RN-005:** O tipo de atribuição pode ser sobrescrito por assunto específico (`Assunto.tipoAtribuicao`), que prevalece sobre a configuração do setor.
+
+- A configuração do setor também define a **estratégia para responsável inativo** (`estrategiaResponsavelInativo`, enum `EstrategiaResponsavelInativo`): `USUARIO_SECUNDARIO`, `ABERTO_SETOR`, `RETORNAR_ORIGEM` (ver seção 5.6).
 
 ---
 
@@ -274,6 +278,22 @@ Enum `StatusProcesso`:
 - **RN-034:** Ao emitir guias de pagamento, o sistema gera o lançamento no Betha (`GuiaPagamento.bethaLancamentoId`) e armazena o código da guia Betha (`bethaCodigoGuia`) para consulta e baixa automática.
 
 - **RN-035:** A confirmação de pagamento pode ser feita manualmente pelo servidor ou automaticamente via webhook/rotina de integração com o Betha (status → `PAGA`).
+
+### 5.6 Responsável Inativo
+
+> **Nota:** "responsável inativo" refere-se ao **servidor responsável cujo status está inativo** — não ao `Perfil` de permissões. A inatividade é **funcional** (férias, afastamento, licença ou vacância) e vem do **CUD**, sincronizada do RH (RN-CUD-059/060).
+
+- **RN-086 (origem do status):** A (in)atividade de um responsável no SPD é **derivada do CUD** (`estaFuncionalmenteAtivo`). Funcionalmente inativo = `FERIAS`, `AFASTADO`, `LICENCA` ou `VACANCIA`.
+
+- **RN-087 (processo já atribuído a responsável que ficou inativo):** O sistema aplica a `estrategiaResponsavelInativo` configurada no setor:
+  1. `USUARIO_SECUNDARIO` — transfere ao **suplente** pré-declarado (`substitutoId`), que se torna o **novo responsável**. Indicado para casos sensíveis e permissões únicas.
+  2. `ABERTO_SETOR` — remove o bloqueio individual; o processo fica disponível para **qualquer usuário do setor** analisar.
+  3. `RETORNAR_ORIGEM` — devolve o processo ao **setor de origem anterior**, com a justificativa "responsável atual inativo".
+  Em todos os casos registra-se `MovimentacaoProcesso` com a justificativa.
+
+- **RN-088 (envio de novo processo a responsável inativo):** **Não é permitido** encaminhar um novo processo a um responsável inativo. O sistema **redireciona** para um responsável ativo, exibe **mensagem** justificando o não envio e **informa ao setor remetente** o destino alternativo (perfil ativo).
+
+- **RN-089 (responsável inativo sem conteúdo):** Um responsável inativo **não mantém nenhum processo ativo atribuído** — apenas o **histórico de ações** (movimentações já realizadas) permanece consultável. Ao inativar, os processos pendentes são realocados conforme RN-087.
 
 ---
 
@@ -590,6 +610,10 @@ Novos campos: `Assunto.prazoLegalDias`, `Assunto.tipoContagemPrazo`, `Processo.d
 `CampoAdicionalAssunto`, `ProcessoCampoAdicional`. Novo campo: `Processo.motivo`.
 Identidade do cidadão **descontinuada no SPD** — consumida do CUD (`tipoVinculo = EXTERNO`, issue #1).
 
+### Novos campos (v2.3)
+`ResponsavelOrganograma.substitutoId` (suplente), `ConfiguracaoAtribuicaoOrganograma.estrategiaResponsavelInativo`.
+Status (in)ativo do responsável **derivado do CUD/RH** (`estaFuncionalmenteAtivo`).
+
 ### Enums de domínio
 | Inglês (v1)        | pt-BR (v2)                                                                                          |
 |--------------------|----------------------------------------------------------------------------------------------------|
@@ -606,6 +630,7 @@ Identidade do cidadão **descontinuada no SPD** — consumida do CUD (`tipoVincu
 | —                  | `StatusPendencia`: ABERTA, CUMPRIDA, EXPIRADA, CANCELADA                                            |
 | —                  | `NivelSigilo`: PUBLICO, RESTRITO, SIGILOSO, SECRETO                                                 |
 | —                  | `TipoCampo`: TEXTO, TEXTO_LONGO, NUMERO, DATA, SELECAO                                              |
+| —                  | `EstrategiaResponsavelInativo`: USUARIO_SECUNDARIO, ABERTO_SETOR, RETORNAR_ORIGEM                   |
 
 ### Permissões (`MODULO:ACAO`) — agora em pt-BR
 | Inglês (v1) | pt-BR (v2)                                                                                            |
