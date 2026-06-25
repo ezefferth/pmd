@@ -66,7 +66,7 @@ Versão: 1.0.0 | Stack: **monorepo** — `rh-api` (NestJS · Fastify) + `rh-web`
 
 - Regime (enum `RegimeJuridico`): `ESTATUTARIO`, `CELETISTA`, `ESPECIAL`.
 
-- **RN-RH-009:** `matricula` é **única**. O `cpf` correlaciona o servidor à conta única no CUD (`Usuario.cpf`).
+- **RN-RH-009:** `matricula` é **única** e existe apenas para vínculos com matrícula formal (`EFETIVO`/`COMISSIONADO`). **Estagiários não possuem matrícula** (`null`). O `cpf` correlaciona o servidor à conta única no CUD (`Usuario.cpf`). Ver RN-CUD-061.
 
 - **RN-RH-010:** O `tipoVinculo` deve ser compatível com o tipo do cargo (`EFETIVO`↔`EFETIVO`, `COMISSIONADO`↔`COMISSAO`, `ESTAGIARIO`↔`ESTAGIO`, etc.). Todo servidor tem **cargo** (`cargoId`) e **lotação** (`unidadeLotacaoId`).
 

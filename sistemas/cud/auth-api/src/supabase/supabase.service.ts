@@ -32,6 +32,26 @@ export class SupabaseService {
     return this.clienteAdmin
   }
 
+  /** Cria o usuário no GoTrue (RN-CUD-003: existe no Auth antes do banco). */
+  async criarUsuarioAuth(params: {
+    email: string
+    senha?: string
+    metadata?: Record<string, unknown>
+    emailConfirmado?: boolean
+  }) {
+    return this.clienteAdmin.auth.admin.createUser({
+      email: params.email,
+      password: params.senha,
+      email_confirm: params.emailConfirmado ?? false,
+      user_metadata: params.metadata,
+    })
+  }
+
+  /** Remove o usuário do GoTrue — rollback quando a gravação no banco falha (RN-CUD-003). */
+  async excluirUsuarioAuth(authId: string) {
+    return this.clienteAdmin.auth.admin.deleteUser(authId)
+  }
+
   async autenticar(email: string, senha: string) {
     return this.clientePublico.auth.signInWithPassword({ email, password: senha })
   }

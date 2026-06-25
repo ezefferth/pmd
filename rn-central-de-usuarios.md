@@ -25,7 +25,7 @@ Versão: 1.4.0 | Stack: **monorepo** — `auth-api` (NestJS · Fastify) + `admin
 
 ### 1.1 Cadastro e Identidade
 
-- O usuário municipal é representado por `Usuario` (campos: `id`, `nome`, `cpf`, `email`, `matricula`, `telefone?`, `authId`, `status`, `ehAdminGlobal`, `ativo`, `criadoEm`, `atualizadoEm`).
+- O usuário municipal é representado por `Usuario` (campos: `id`, `nome`, `cpf`, `email`, `emailSecundario?`, `matricula`, `telefone?`, `telefoneSecundario?`, `authId`, `status`, `tipoVinculo`, `setorId?`, `ehAdminGlobal`, `ativo`, `criadoEm`, `atualizadoEm`).
 
 - **RN-CUD-001:** O `cpf` e o `email` são **únicos** no sistema. O `cpf` é validado por dígito verificador antes da gravação.
 
@@ -282,6 +282,8 @@ Todo usuário se autoregistra e nasce **externo**. Para se tornar servidor (ou o
 - **RN-CUD-047:** Tornar-se interno exige **vínculo explícito**, atribuído por admin competente (admin global ou admin de setor no escopo, RN-CUD-040) **ou** pela sincronização do RH. O usuário **não** escolhe o próprio tipo.
 
 - **RN-CUD-048:** O vínculo interno **por si só não concede acesso** a sistemas/módulos — o acesso permanece via concessão (`Acesso`, seção 4). Vínculo é pré-requisito, não permissão.
+
+- **RN-CUD-061 (matrícula por vínculo):** A `matricula` existe **somente** para `EFETIVO` e `COMISSIONADO` (obrigatória). `ESTAGIARIO` e `EXTERNO` **não possuem** matrícula (`null` — a interface exibe "Estagiário"/"Externo"). Ao alterar o vínculo: virar `EFETIVO`/`COMISSIONADO` exige informar a matrícula; virar `ESTAGIARIO`/`EXTERNO` **zera** a matrícula. `ELETIVO`/`TEMPORARIO`: matrícula opcional. A matrícula é, em última instância, dado-mestre do RH (ficha funcional).
 
 ### 11.2 Acesso por Tipo de Vínculo
 
