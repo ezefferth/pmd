@@ -1,0 +1,4 @@
+# Builds nativos opcionais permitidos no install
+onlyBuiltDependencies:
+  - sharp
+  - unrs-resolver

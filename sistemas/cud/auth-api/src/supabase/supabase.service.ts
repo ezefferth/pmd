@@ -59,4 +59,16 @@ export class SupabaseService {
   async enviarRecuperacaoSenha(email: string) {
     return this.clientePublico.auth.resetPasswordForEmail(email)
   }
+
+  async atualizarSenha(authId: string, senha: string) {
+    return this.clienteAdmin.auth.admin.updateUserById(authId, { password: senha })
+  }
+
+  /** Troca o e-mail no GoTrue; email_confirm=false exige nova verificação. */
+  async atualizarEmail(authId: string, email: string) {
+    return this.clienteAdmin.auth.admin.updateUserById(authId, {
+      email,
+      email_confirm: false,
+    })
+  }
 }
