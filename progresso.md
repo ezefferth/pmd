@@ -31,13 +31,16 @@ Stack: NestJS 11 · Fastify · Prisma 6 · Supabase Auth · ioredis. **Compila**
 | usuários | #25 | CRUD, autoregistro externo, vínculo, status; CPF válido; rollback Supabase→banco; matrícula por vínculo (RN-CUD-061) |
 | sistemas/perfis/acessos | #26 | CRUD + **`GET /acessos/verificar`** + cache Redis (TTL 45s) |
 | administração por setor | #27 | Setor (árvore), AdministradorSetor, `resolverEscopo`, lotação, `meu-escopo` |
+| auditoria global | #29 (em revisão) | `GET /auditoria` (filtros + paginado), `@Contexto` (ator/IP/UA), instrumentação de usuários/acessos/setores (RN-CUD-058) |
+
+> Com a #29, o **backend do CUD independente de RH/frontend está completo**.
 
 ### Falta no CUD
-- **#19** auditoria global (`LogAuditoria` via interceptor — RN-CUD-058) ← próximo recomendado
 - **#18** ficha funcional + sync RH (depende do RH existir)
 - **#20** admin-web (gestor) · **#24** conta-web (autogestão do próprio usuário)
 - Proteger `GET /acessos/verificar` por credencial de sistema (hoje aberto — `TODO` no código)
 - Mini-perfil (sistemas/módulos + histórico — RN-CUD-056/057)
+- Auditar também mutações de sistemas/perfis (o `AuditoriaService` já é global)
 
 ---
 
@@ -64,7 +67,8 @@ Infra: Postgres 54322 · Supabase API 54321 · Studio 54323 · Redis 6379.
 
 ## Issues abertas (backlog de implementação)
 #1 (identidade SPD↔CUD) · #3 (abertura cidadão SPD) · #6 (status inativo) ·
-#18 #19 #20 #24 (CUD) · demais módulos do SPD e RH a abrir conforme avançarmos.
+#18 #20 #24 (CUD) · demais módulos do SPD e RH a abrir conforme avançarmos.
+(#19 auditoria entregue na PR #29.)
 
 ---
 
@@ -81,4 +85,4 @@ pnpm dev                             # http://localhost:3001/api/v1/saude
 # fluxo de trabalho: 1 issue = 1 branch = 1 PR (ver git-workflow.md)
 ```
 
-**Próximo passo recomendado:** #19 (auditoria) para fechar o backend do CUD, depois frontend (#20).
+**Próximo passo recomendado:** mergear #29 (auditoria) e partir para o **frontend do CUD** — #20 (admin-web) ou #24 (conta-web). #18 (sync RH) quando o RH começar.
