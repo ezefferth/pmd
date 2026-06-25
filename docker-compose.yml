@@ -1,0 +1,17 @@
+# Infra complementar da suíte PMD.
+# O PostgreSQL/Auth/Storage são gerenciados pelo Supabase CLI (`supabase start`).
+# Aqui fica apenas o Redis (cache da verificação de acesso do CUD — RN-CUD-021).
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: pmd-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - pmd-redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  pmd-redis-data:
