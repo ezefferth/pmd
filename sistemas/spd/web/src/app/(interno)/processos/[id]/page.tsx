@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { StatusProcesso, TipoMovimentacao } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { urlAssinada } from '@/lib/storage'
 import { FormToast } from '@/components/form-toast'
 import {
   receberProcesso,
@@ -13,6 +14,7 @@ import {
   reabrirProcesso,
   cancelarProcesso,
 } from '@/actions/tramitacao'
+import { anexarDocumento } from '@/actions/documentos'
 
 const ROTULO_STATUS: Record<StatusProcesso, string> = {
   ABERTO: 'Aberto',
@@ -58,9 +60,18 @@ export default async function ProcessoDetalhePage({
         orderBy: { criadoEm: 'desc' },
         include: { usuario: { select: { nome: true } } },
       },
+      documentos: { orderBy: { numeroOrdem: 'asc' } },
     },
   })
   if (!processo) notFound()
+
+  // URLs assinadas temporárias para baixar cada peça (bucket privado)
+  const documentos = await Promise.all(
+    processo.documentos.map(async (d) => ({
+      ...d,
+      url: await urlAssinada(d.urlArquivo).catch(() => null),
+    })),
+  )
 
   const [organogramas, servidores] = await Promise.all([
     prisma.organograma.findMany({
@@ -200,6 +211,52 @@ export default async function ProcessoDetalhePage({
         </div>
       )}
 
+      {/* Documentos (peças do processo) */}
+      <div>
+        <h2 className="mb-3 font-semibold">Documentos</h2>
+        {documentos.length > 0 ? (
+          <ul className="mb-4 divide-y rounded-lg border">
+            {documentos.map((d) => (
+              <li key={d.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                <span>
+                  <span className="mr-2 font-mono text-xs opacity-50">
+                    {String(d.numeroOrdem ?? 0).padStart(3, '0')}
+                  </span>
+                  {d.nome}
+                </span>
+                {d.url ? (
+                  <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-primaria hover:underline">
+                    baixar
+                  </a>
+                ) : (
+                  <span className="text-xs opacity-50">indisponível</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mb-4 text-sm opacity-60">Nenhuma peça anexada.</p>
+        )}
+
+        {!ehFinal && (
+          <FormToast
+            acao={anexarDocumento}
+            sucesso="Documento anexado"
+            carregando="Enviando…"
+            className="flex flex-wrap items-center gap-2 rounded-lg border p-4"
+          >
+            <input type="hidden" name="processoId" value={processo.id} />
+            <input
+              type="file"
+              name="arquivo"
+              required
+              className="text-sm file:mr-3 file:rounded file:border-0 file:bg-primaria file:px-3 file:py-1.5 file:text-white"
+            />
+            <button className="rounded bg-primaria px-4 py-2 text-sm font-medium text-white">Anexar</button>
+          </FormToast>
+        )}
+      </div>
+
       {/* Timeline de movimentações */}
       <div>
         <h2 className="mb-3 font-semibold">Movimentações</h2>
@@ -239,6 +296,7 @@ function rotuloMov(tipo: TipoMovimentacao): string {
     CANCELAMENTO: 'Cancelamento',
     COMENTARIO: 'Comentário',
     PARECER: 'Parecer',
+    JUNTADA_DOCUMENTO: 'Juntada de documento',
   }
   return mapa[tipo] ?? tipo
 }
