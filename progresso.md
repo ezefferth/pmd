@@ -98,6 +98,9 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 - **Matrícula** só `EFETIVO`/`COMISSIONADO`; estagiário/externo sem matrícula (RN-CUD-061).
 - **Permissões** `MODULO:ACAO` em **pt-BR**.
 
+## Fora de escopo (por ora)
+- **Betha** (integração tributária) e **guias de pagamento** — removidos do schema/RN do SPD (#47). Retomar depois.
+
 ## Pendências de refino / externas
 - `verificar` por API key: a **sincronização RH→CUD já usa `x-sync-key`** (#40); falta o mesmo para o `verificar` consumido pelo SPD.
 - RH e SPD ainda **sem autenticação** (endpoints abertos/MVP); selects/paginação no admin-web.

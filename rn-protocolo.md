@@ -1,6 +1,10 @@
 # 📋 Regras de Negócio — Sistema de Protocolo Digital (SPD)
 **Prefeitura Municipal de Dourados/MS — Secretaria Municipal de Fazenda**
-Versão: 2.3.0 | Stack: Next.js · Prisma ORM · PostgreSQL (Supabase Self-Hosted)
+Versão: 2.3.1 | Stack: Next.js · Prisma ORM · PostgreSQL (Supabase Self-Hosted)
+
+> ⚠️ **FORA DE ESCOPO por ora:** **integração Betha** e **guias de pagamento**. Ignore, nesta fase, todas
+> as RN/seções que tratam de Betha (espelho Betha, lançamentos, validações Betha) e de guias
+> (`AssuntoGuiaPagamento`, `GuiaPagamento`, `TipoGuia`, `tramitarComPendenciaPagamento`). Serão retomadas depois.
 
 > **Convenção de nomenclatura (pt-BR):** todos os nomes de entidades, campos, flags, enums de domínio
 > e permissões deste documento seguem a convenção pt-BR obrigatória do ecossistema PMD (ver `CLAUDE.md` raiz).

@@ -91,12 +91,6 @@ enum TipoMovimentacao {
   PRORROGACAO_PRAZO
 }
 
-enum StatusGuia {
-  PENDENTE
-  VENCIDA
-  PAGA
-}
-
 // ── Identidade local (espelho do CUD) ──────────────────────────
 
 /// Servidor — espelho da conta do CUD (correlação por authId). Identidade é do CUD.
@@ -184,14 +178,12 @@ model ConfiguracaoAtribuicaoOrganograma {
 // ── Cadastro (seção 3) ─────────────────────────────────────────
 
 model ParteInteressada {
-  id               String     @id @default(uuid())
-  tipoPessoa       TipoPessoa
-  cpfCnpj          String     @unique
-  nome             String
-  email            String?
-  bethaId          String?
-  bethaEconomicoId String?
-  criadoEm         DateTime   @default(now())
+  id         String     @id @default(uuid())
+  tipoPessoa TipoPessoa
+  cpfCnpj    String     @unique
+  nome       String
+  email      String?
+  criadoEm   DateTime   @default(now())
 
   processosRequeridos Processo[]
   interessados        ProcessoInteressado[]
@@ -209,15 +201,6 @@ model TipoDocumento {
   documentos        Documento[]
 }
 
-model TipoGuia {
-  id          String   @id @default(uuid())
-  nome        String
-  valorPadrao Decimal?
-
-  assuntoGuias AssuntoGuiaPagamento[]
-  guias        GuiaPagamento[]
-}
-
 model Assunto {
   id                            String            @id @default(uuid())
   codigo                        Int
@@ -228,7 +211,6 @@ model Assunto {
   permiteAberturaInterna        Boolean           @default(true)
   permiteAnonimo                Boolean           @default(false)
   permiteSigiloso               Boolean           @default(false)
-  tramitarComPendenciaPagamento Boolean           @default(false)
   exigeObservacao               Boolean           @default(false)
   exigeComentarios              Boolean           @default(false)
   permiteTramitacao             Boolean           @default(true)
@@ -239,7 +221,6 @@ model Assunto {
   ativo                         Boolean           @default(true)
 
   documentos       AssuntoDocumento[]
-  guias            AssuntoGuiaPagamento[]
   camposAdicionais CampoAdicionalAssunto[]
   processos        Processo[]
 
@@ -254,17 +235,6 @@ model AssuntoDocumento {
 
   assunto       Assunto       @relation(fields: [assuntoId], references: [id], onDelete: Cascade)
   tipoDocumento TipoDocumento @relation(fields: [tipoDocumentoId], references: [id])
-}
-
-model AssuntoGuiaPagamento {
-  id          String   @id @default(uuid())
-  assuntoId   String
-  tipoGuiaId  String
-  valor       Decimal?
-  obrigatorio Boolean  @default(false)
-
-  assunto  Assunto  @relation(fields: [assuntoId], references: [id], onDelete: Cascade)
-  tipoGuia TipoGuia @relation(fields: [tipoGuiaId], references: [id])
 }
 
 model CampoAdicionalAssunto {
@@ -303,7 +273,6 @@ model Processo {
   estaBloqueado        Boolean        @default(false)
   ehAnonimo            Boolean        @default(false)
   nivelSigilo          NivelSigilo    @default(PUBLICO)
-  bethaLancamentoId    String?
   dataLimite           DateTime?
   estaAtrasado         Boolean        @default(false)
   criadoEm             DateTime       @default(now())
@@ -318,7 +287,6 @@ model Processo {
   interessados     ProcessoInteressado[]
   camposAdicionais ProcessoCampoAdicional[]
   documentos       Documento[]
-  guias            GuiaPagamento[]
 
   @@index([assuntoId])
   @@index([organogramaAtualId])
@@ -383,23 +351,6 @@ model Documento {
 
   processo      Processo       @relation(fields: [processoId], references: [id], onDelete: Cascade)
   tipoDocumento TipoDocumento? @relation(fields: [tipoDocumentoId], references: [id])
-
-  @@index([processoId])
-}
-
-model GuiaPagamento {
-  id                String     @id @default(uuid())
-  processoId        String
-  tipoGuiaId        String
-  valor             Decimal
-  status            StatusGuia @default(PENDENTE)
-  dataVencimento    DateTime?
-  bethaLancamentoId String?
-  bethaCodigoGuia   String?
-  criadoEm          DateTime   @default(now())
-
-  processo Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
-  tipoGuia TipoGuia @relation(fields: [tipoGuiaId], references: [id])
 
   @@index([processoId])
 }
