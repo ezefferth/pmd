@@ -305,8 +305,10 @@ Tarefas de integração. Nesse caso:
 | SPD api | 3003 (reservado) |
 | RH web | 3004 |
 | RH api | 3005 |
+| CUD conta-web | 3006 |
 
 > Convenção: cada sistema reserva um par (web, API) — a API fica na **porta subsequente** à web.
+> O CUD tem um **segundo** front (conta-web, :3006) para autogestão do próprio usuário.
 > Supabase Studio (:54323) visualiza os schemas `cud`/`spd`/`rh` em um único lugar.
 
 ---

@@ -53,25 +53,26 @@ Scripts na raiz (cada um roda o app no diretório certo, com sua porta):
 pnpm install              # instala 'concurrently' na raiz (para `dev` combinado)
 
 pnpm dev                  # roda os apps existentes em paralelo
-pnpm dev:cud-web          # admin-web do CUD     (quando criado)
-pnpm dev:cud-api          # auth-api do CUD
-pnpm dev:spd              # web do protocolo      (quando criado)
-pnpm dev:rh-web           # web do RH             (quando criado)
-pnpm dev:rh-api           # api do RH             (quando criado)
+pnpm dev:cud-web          # admin-web do CUD       :3000
+pnpm dev:cud-api          # auth-api do CUD        :3001
+pnpm dev:spd              # web do protocolo       :3002 (quando criado)
+pnpm dev:rh-web           # web do RH              :3004 (quando criado)
+pnpm dev:rh-api           # api do RH              :3005
 ```
 
 ## Portas
 
-Convenção: **cada sistema reserva um par (web, API)** — a API fica na porta **subsequente** à web.
+Convenção: cada sistema reserva o par (web, API subsequente). O CUD tem um **segundo** front (conta-web) para autogestão.
 
-| Sistema | Web | API |
-|---------|-----|-----|
-| CUD | 3000 | 3001 |
-| SPD (protocolo) | 3002 | 3003 (reservado) |
-| RH | 3004 | 3005 |
-
-| Infra | Porta |
-|-------|-------|
+| App / Serviço | Porta |
+|---------------|-------|
+| CUD admin-web | 3000 |
+| CUD auth-api | 3001 |
+| SPD web (protocolo) | 3002 |
+| SPD api | 3003 (reservado) |
+| RH web | 3004 |
+| RH api | 3005 |
+| CUD conta-web | 3006 |
 | Supabase API/Auth/Storage | 54321 |
 | PostgreSQL | 54322 |
 | Supabase Studio | 54323 |

@@ -9,80 +9,109 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 
 | Sistema | Regra de negócio | Backend | Frontend |
 |---------|------------------|---------|----------|
-| **CUD** (Central de Usuários) | ✅ `rn-central-de-usuarios.md` v1.4.0 | 🟢 auth-api avançada (ver abaixo) | ⬜ admin-web (#20) · conta-web (#24) |
+| **CUD** (Central de Usuários) | ✅ `rn-central-de-usuarios.md` v1.4.0 | ✅ **completo** (auth-api) | ✅ admin-web · ✅ conta-web |
+| **RH** (Recursos Humanos) | ✅ `rn-recursos-humanos.md` v1.0.0 | 🟡 schema + scaffold (#35) | ⬜ (rh-web) |
 | **SPD** (Protocolo) | ✅ `rn-protocolo.md` v2.3.0 | ⬜ | ⬜ |
-| **RH** (Recursos Humanos) | ✅ `rn-recursos-humanos.md` v1.0.0 | ⬜ | ⬜ |
 
 > Documentos transversais: `CLAUDE.md` (convenção pt-BR + integração), `git-workflow.md`,
 > `marca/` (tema multi-município), `progresso.md` (este).
 
 ---
 
-## CUD — auth-api (`sistemas/cud/auth-api`) — implementado
+## CUD — implementado e validado (`tsc`/`nest build`/`next build` OK)
 
-Stack: NestJS 11 · Fastify · Prisma 6 · Supabase Auth · ioredis. **Compila** (`tsc` + `nest build` OK).
-
+### auth-api (`sistemas/cud/auth-api`) — NestJS 11 · Fastify · Prisma 6 · Supabase Auth · ioredis
 | Módulo | PR | Conteúdo |
 |--------|----|----------|
 | schema Prisma | #9 | Usuario, Sistema, Perfil, Acesso, Setor, AdministradorSetor, FichaFuncional, LogAuditoria + enums |
-| scaffold | #11 | bootstrap Fastify, prefixo `api/v1`, PrismaModule, `GET /saude` |
-| infra | #21/#22 | Supabase CLI + schemas `cud/spd/rh` + Redis (docker-compose) + scripts `infra:up` |
+| scaffold | #11 | Fastify, prefixo `api/v1`, PrismaModule, `GET /saude` |
+| infra | #21/#22 | Supabase CLI + schemas `cud/spd/rh` + Redis + scripts `infra:up`/`dev:*` |
 | autenticação | #23 | `POST /autenticacao/login`, `recuperar-senha`, `GET /eu`; `JwtAuthGuard`, `AdminGlobalGuard` |
-| usuários | #25 | CRUD, autoregistro externo, vínculo, status; CPF válido; rollback Supabase→banco; matrícula por vínculo (RN-CUD-061) |
+| usuários | #25 | CRUD, autoregistro externo, vínculo, status; CPF; rollback Supabase→banco; matrícula por vínculo (RN-CUD-061) |
 | sistemas/perfis/acessos | #26 | CRUD + **`GET /acessos/verificar`** + cache Redis (TTL 45s) |
 | administração por setor | #27 | Setor (árvore), AdministradorSetor, `resolverEscopo`, lotação, `meu-escopo` |
-| auditoria global | #29 (em revisão) | `GET /auditoria` (filtros + paginado), `@Contexto` (ator/IP/UA), instrumentação de usuários/acessos/setores (RN-CUD-058) |
+| auditoria global | #29 | `GET /auditoria` (filtros/paginado), `@Contexto` (ator/IP/UA), instrumentação (RN-CUD-058) |
+| perfil próprio | #33 | `GET/PATCH /perfil`, `POST /perfil/senha`, `POST /perfil/email` |
 
-> Com a #29, o **backend do CUD independente de RH/frontend está completo**.
+### admin-web (`sistemas/cud/admin-web`) — Next 15 + Tailwind, porta 3000
+| PR | Conteúdo |
+|----|----------|
+| #31 | scaffold + login (cookie httpOnly) + middleware + dashboard + lista de usuários; marca aplicada |
+| #32 | telas: sistemas, perfis, acessos, auditoria, novo usuário, detalhe (mini-perfil: dados/acessos/status/vínculo), configurações |
 
-### Falta no CUD
-- **#18** ficha funcional + sync RH (depende do RH existir)
-- **#20** admin-web (gestor) · **#24** conta-web (autogestão do próprio usuário)
-- Proteger `GET /acessos/verificar` por credencial de sistema (hoje aberto — `TODO` no código)
-- Mini-perfil (sistemas/módulos + histórico — RN-CUD-056/057)
-- Auditar também mutações de sistemas/perfis (o `AuditoriaService` já é global)
+### conta-web (`sistemas/cud/conta-web`) — Next 15, porta 3006
+| PR | Conteúdo |
+|----|----------|
+| #33 | autogestão: login, cadastro (autoregistro externo), recuperar-senha; minha conta (dados, e-mail/telefone secundário, alterar e-mail/senha) |
 
----
-
-## Convenção de portas (web + API subsequente)
-
-| Sistema | Web | API |
-|---------|-----|-----|
-| CUD | 3000 | 3001 |
-| SPD | 3002 | 3003 (reservado) |
-| RH | 3004 | 3005 |
-
-Infra: Postgres 54322 · Supabase API 54321 · Studio 54323 · Redis 6379.
+> **O CUD está funcionalmente completo.** Resta só a integração com o RH (#18) e refinos (abaixo).
 
 ---
 
-## Decisões registradas (já refletidas nas RN)
+## RH — iniciado (`sistemas/rh/api`) — PR #35
 
-- **Identidade única no CUD** — cidadãos/externos se autoregistram no CUD (`tipoVinculo = EXTERNO`); SPD não tem mais `Citizen` (issue #1).
-- **Setores canônicos no CUD**, futuramente puxados do **RH** (SPD mantém organograma próprio).
+- Schema Prisma (schema `rh`): `UnidadeOrganizacional` (árvore), `Carreira`, `Cargo`, `FaixaSalarial`, `Servidor`, `DesignacaoConfianca`, `MovimentacaoFuncional`, `LogAuditoria` + enums.
+- Scaffold NestJS + Fastify + Prisma, porta 3005, `GET /api/v1/saude`.
+
+### Falta no RH
+- Módulos de domínio: unidades, cargos/carreiras, servidores, movimentações (CRUD)
+- **Sync RH→CUD** (issue #18) — publica ficha funcional + árvore de setores no CUD
+- `rh-web` (frontend, porta 3004)
+
+---
+
+## Portas
+
+| App / Serviço | Porta |
+|---------------|-------|
+| CUD admin-web | 3000 |
+| CUD auth-api | 3001 |
+| SPD web (protocolo) | 3002 |
+| SPD api | 3003 (reservado) |
+| RH web | 3004 |
+| RH api | 3005 |
+| CUD conta-web | 3006 |
+| Supabase API/Auth/Storage | 54321 · PostgreSQL 54322 · Studio 54323 · Redis 6379 |
+
+> Convenção: cada sistema reserva o par (web, API subsequente). O CUD tem um **segundo** front (conta-web, 3006) por atender público distinto (autogestão).
+
+---
+
+## Decisões registradas (refletidas nas RN)
+
+- **Identidade única no CUD** — externos/cidadãos se autoregistram no CUD (`tipoVinculo = EXTERNO`); SPD sem `Citizen` (issue #1).
+- **Setores canônicos no CUD**, puxados do **RH** (SPD mantém organograma próprio).
 - **Exoneração/aposentadoria** rebaixa para `EXTERNO` e revoga acessos internos.
-- **Matrícula** só para `EFETIVO`/`COMISSIONADO`; estagiário/externo sem matrícula (RN-CUD-061).
-- **Permissões** `MODULO:ACAO` em **pt-BR** (contrato com o CUD).
-- **Gotham** é fonte licenciada; **2 cores do manual vieram malformadas** (`#d1d1b`, `#1e1ec`) — pendente confirmar.
+- **Matrícula** só `EFETIVO`/`COMISSIONADO`; estagiário/externo sem matrícula (RN-CUD-061).
+- **Permissões** `MODULO:ACAO` em **pt-BR**.
 
-## Issues abertas (backlog de implementação)
-#1 (identidade SPD↔CUD) · #3 (abertura cidadão SPD) · #6 (status inativo) ·
-#18 #20 #24 (CUD) · demais módulos do SPD e RH a abrir conforme avançarmos.
-(#19 auditoria entregue na PR #29.)
+## Pendências de refino / externas
+- `GET /acessos/verificar` está **aberto** — proteger por **credencial de sistema (API key)**.
+- Mini-perfil de auditoria, auditar mutações de sistemas/perfis; selects/paginação no admin-web.
+- Verificação de e-mail depende da config do Supabase (Inbucket/confirmations).
+- **Confirmar 2 cores do manual** (`#d1d1b`, `#1e1ec`) e **licença Gotham** (frontends).
+
+## Issues abertas
+#1 (identidade SPD↔CUD) · #3 (abertura cidadão SPD) · #6 (status inativo) · #18 (sync RH→CUD) ·
+módulos do RH e do SPD a abrir conforme avançarmos.
 
 ---
 
 ## Como retomar
 
 ```bash
-# subir infra e validar de ponta a ponta
-npm run infra:up
+npm run infra:up                     # Supabase + Redis
 npm run db:reset                     # cria schemas cud/spd/rh
-cd sistemas/cud/auth-api
-pnpm install && pnpm prisma:migrate --name init
-pnpm dev                             # http://localhost:3001/api/v1/saude
 
-# fluxo de trabalho: 1 issue = 1 branch = 1 PR (ver git-workflow.md)
+# CUD
+cd sistemas/cud/auth-api && pnpm install && pnpm prisma:migrate --name init && pnpm dev   # :3001
+cd sistemas/cud/admin-web && pnpm install && pnpm dev                                       # :3000
+cd sistemas/cud/conta-web && pnpm install && pnpm dev                                       # :3006
+
+# RH
+cd sistemas/rh/api && pnpm install && pnpm prisma:migrate --name init && pnpm dev           # :3005
+
+# fluxo: 1 issue = 1 branch = 1 PR (ver git-workflow.md)
 ```
 
-**Próximo passo recomendado:** mergear #29 (auditoria) e partir para o **frontend do CUD** — #20 (admin-web) ou #24 (conta-web). #18 (sync RH) quando o RH começar.
+**Próximo passo recomendado:** módulos de domínio do RH → **sync RH→CUD (#18)** (fecha a última pendência do CUD). Depois iniciar o **SPD**.
