@@ -11,6 +11,7 @@ import { AcessosModule } from './acessos/acessos.module'
 import { SetoresModule } from './setores/setores.module'
 import { AuditoriaModule } from './auditoria/auditoria.module'
 import { PerfilModule } from './perfil/perfil.module'
+import { SincronizacaoModule } from './sincronizacao/sincronizacao.module'
 import { AppController } from './app.controller'
 
 @Module({
@@ -27,6 +28,7 @@ import { AppController } from './app.controller'
     AcessosModule,
     SetoresModule,
     PerfilModule,
+    SincronizacaoModule,
   ],
   controllers: [AppController],
 })
