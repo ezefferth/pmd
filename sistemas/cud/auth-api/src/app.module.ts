@@ -8,6 +8,7 @@ import { UsuariosModule } from './usuarios/usuarios.module'
 import { SistemasModule } from './sistemas/sistemas.module'
 import { PerfisModule } from './perfis/perfis.module'
 import { AcessosModule } from './acessos/acessos.module'
+import { GruposAcessoModule } from './grupos-acesso/grupos-acesso.module'
 import { SetoresModule } from './setores/setores.module'
 import { AuditoriaModule } from './auditoria/auditoria.module'
 import { PerfilModule } from './perfil/perfil.module'
@@ -26,6 +27,7 @@ import { AppController } from './app.controller'
     SistemasModule,
     PerfisModule,
     AcessosModule,
+    GruposAcessoModule,
     SetoresModule,
     PerfilModule,
     SincronizacaoModule,

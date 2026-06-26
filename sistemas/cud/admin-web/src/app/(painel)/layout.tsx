@@ -6,6 +6,7 @@ const navAtiva = [
   { href: '/usuarios', rotulo: 'Usuários' },
   { href: '/sistemas', rotulo: 'Sistemas' },
   { href: '/perfis', rotulo: 'Perfis' },
+  { href: '/grupos-acesso', rotulo: 'Grupos de acesso' },
   { href: '/acessos', rotulo: 'Acessos' },
   { href: '/auditoria', rotulo: 'Auditoria' },
   { href: '/configuracoes', rotulo: 'Configurações' },
