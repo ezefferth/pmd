@@ -9,9 +9,9 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 
 | Sistema | Regra de negócio | Backend | Frontend |
 |---------|------------------|---------|----------|
-| **CUD** (Central de Usuários) | ✅ `rn-central-de-usuarios.md` v1.4.0 | ✅ **completo** (auth-api) | ✅ admin-web · ✅ conta-web |
-| **RH** (Recursos Humanos) | ✅ `rn-recursos-humanos.md` v1.0.0 | 🟡 schema + scaffold (#35) | ⬜ (rh-web) |
-| **SPD** (Protocolo) | ✅ `rn-protocolo.md` v2.3.0 | ⬜ | ⬜ |
+| **CUD** (Central de Usuários) | ✅ `rn-central-de-usuarios.md` v1.4.0 | ✅ **completo** (auth-api + sync RH) | ✅ admin-web · ✅ conta-web |
+| **RH** (Recursos Humanos) | ✅ `rn-recursos-humanos.md` v1.0.0 | ✅ api: schema + domínios + sync→CUD (#35/#39/#40) | ⬜ (rh-web) |
+| **SPD** (Protocolo) | ✅ `rn-protocolo.md` v2.3.0 | 🟡 schema + scaffold (#42) | 🟡 scaffold |
 
 > Documentos transversais: `CLAUDE.md` (convenção pt-BR + integração), `git-workflow.md`,
 > `marca/` (tema multi-município), `progresso.md` (este).
@@ -44,19 +44,32 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 |----|----------|
 | #33 | autogestão: login, cadastro (autoregistro externo), recuperar-senha; minha conta (dados, e-mail/telefone secundário, alterar e-mail/senha) |
 
-> **O CUD está funcionalmente completo.** Resta só a integração com o RH (#18) e refinos (abaixo).
+> **O CUD está funcionalmente completo**, incluindo o **recebimento da sincronização do RH** (#40).
 
 ---
 
-## RH — iniciado (`sistemas/rh/api`) — PR #35
+## RH — api (`sistemas/rh/api`)
 
-- Schema Prisma (schema `rh`): `UnidadeOrganizacional` (árvore), `Carreira`, `Cargo`, `FaixaSalarial`, `Servidor`, `DesignacaoConfianca`, `MovimentacaoFuncional`, `LogAuditoria` + enums.
-- Scaffold NestJS + Fastify + Prisma, porta 3005, `GET /api/v1/saude`.
+- Schema Prisma (schema `rh`): `UnidadeOrganizacional` (árvore), `Carreira`, `Cargo`, `FaixaSalarial`, `Servidor`, `DesignacaoConfianca`, `MovimentacaoFuncional`, `LogAuditoria` + enums (#35).
+- **Módulos de domínio** (#39): unidades (árvore + ciclo), carreiras + faixas, cargos, servidores (admissão registra movimentação), movimentações.
+- **Sync RH→CUD** (#40): `POST /sincronizacao/publicar` → publica setores + ficha funcional no CUD (protegido por `x-sync-key`).
 
 ### Falta no RH
-- Módulos de domínio: unidades, cargos/carreiras, servidores, movimentações (CRUD)
-- **Sync RH→CUD** (issue #18) — publica ficha funcional + árvore de setores no CUD
-- `rh-web` (frontend, porta 3004)
+- `rh-web` (frontend, porta 3004) e autenticação (endpoints hoje abertos, MVP)
+- Sync por evento (webhook) e auditoria
+
+---
+
+## SPD — iniciado (`sistemas/spd/web`) — PR #42
+
+- Schema Prisma (schema `spd`) — núcleo: organograma, `Usuario` (espelho CUD), `ParteInteressada`, assuntos (+docs/guias/campos adicionais), processo (`Processo`, `MovimentacaoProcesso`, interessados, documentos, guias) + enums.
+- Scaffold Next 15 + Tailwind + Prisma (singleton) + marca, porta 3002, home.
+
+### Falta no SPD
+- **Auth via CUD** (servidor e cidadão — #1) ← próximo
+- Cadastros (organograma, assuntos), abertura de processo pelo cidadão (#3), tramitação, responsável inativo (#6)
+- Schema avançado: assinatura, pendências, sigilo/credencial, notificações, vínculos
+- Integração Betha + Supabase Storage
 
 ---
 
@@ -86,14 +99,14 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 - **Permissões** `MODULO:ACAO` em **pt-BR**.
 
 ## Pendências de refino / externas
-- `GET /acessos/verificar` está **aberto** — proteger por **credencial de sistema (API key)**.
-- Mini-perfil de auditoria, auditar mutações de sistemas/perfis; selects/paginação no admin-web.
+- `verificar` por API key: a **sincronização RH→CUD já usa `x-sync-key`** (#40); falta o mesmo para o `verificar` consumido pelo SPD.
+- RH e SPD ainda **sem autenticação** (endpoints abertos/MVP); selects/paginação no admin-web.
 - Verificação de e-mail depende da config do Supabase (Inbucket/confirmations).
 - **Confirmar 2 cores do manual** (`#d1d1b`, `#1e1ec`) e **licença Gotham** (frontends).
 
 ## Issues abertas
-#1 (identidade SPD↔CUD) · #3 (abertura cidadão SPD) · #6 (status inativo) · #18 (sync RH→CUD) ·
-módulos do RH e do SPD a abrir conforme avançarmos.
+#1 (auth SPD via CUD) · #3 (abertura cidadão SPD) · #6 (responsável inativo no SPD).
+(#18 sync, #34/#35 RH scaffold, #38/#39 RH domínios, #41/#42 SPD scaffold — concluídos.)
 
 ---
 
@@ -111,7 +124,10 @@ cd sistemas/cud/conta-web && pnpm install && pnpm dev                           
 # RH
 cd sistemas/rh/api && pnpm install && pnpm prisma:migrate --name init && pnpm dev           # :3005
 
+# SPD
+cd sistemas/spd/web && pnpm install && pnpm prisma:migrate --name init && pnpm dev           # :3002
+
 # fluxo: 1 issue = 1 branch = 1 PR (ver git-workflow.md)
 ```
 
-**Próximo passo recomendado:** módulos de domínio do RH → **sync RH→CUD (#18)** (fecha a última pendência do CUD). Depois iniciar o **SPD**.
+**Próximo passo recomendado:** **auth do SPD via CUD (#1)** — login de servidor e cidadão pelo CUD; base para os demais módulos do SPD. Depois rh-web e cadastros do SPD.
