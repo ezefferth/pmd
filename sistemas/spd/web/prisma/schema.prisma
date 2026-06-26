@@ -1,7 +1,7 @@
 // SPD — Sistema de Protocolo Digital (Dourados/MS)
-// Schema Prisma. Base: rn-protocolo.md. Schema PostgreSQL isolado: `spd` (DATABASE_URL ?schema=spd).
-// Núcleo do protocolo. Módulos avançados (assinatura, pendências, sigilo/credencial, notificações,
-// vínculos de processo) entram em follow-ups.
+// Schema Prisma. Base: rn-protocolo.md (v2.4.0). Schema PostgreSQL isolado: `spd` (DATABASE_URL ?schema=spd).
+// Cobre a RN inteira: núcleo + auditoria field-level, guia de remessa, procedimentos, pendências,
+// vínculos, assinatura, sigilo/credencial e notificações. Único bloco fora de escopo: Betha/guias de pagamento.
 
 generator client {
   provider = "prisma-client-js"
@@ -89,6 +89,74 @@ enum TipoMovimentacao {
   SOLICITACAO_PENDENCIA
   CUMPRIMENTO_PENDENCIA
   PRORROGACAO_PRAZO
+  REMESSA // envio em lote via GuiaRemessa (legado NEA: GUIA_REMESSA)
+  RECEPCAO // recepção/visto no setor destino (legado NEA: LOCALPROCESSO.VISTO)
+}
+
+// ── Auditoria estruturada (seção 10 — derivado de NA_AUDITORIA do legado) ──
+
+/// Operação registrada na auditoria (legado NEA: TIPO_OPERACAO inteiro).
+enum TipoOperacaoAuditoria {
+  INSERCAO
+  ATUALIZACAO
+  EXCLUSAO
+  LEITURA // RN-079: visualização de processo SIGILOSO/SECRETO
+}
+
+enum StatusGuiaRemessa {
+  ABERTA
+  FINALIZADA
+}
+
+enum TipoModeloDocumento {
+  DESPACHO
+  PARECER
+  CAPA
+  OFICIO
+  TERMO
+}
+
+enum TipoPendencia {
+  DOCUMENTO
+  PAGAMENTO
+  INFORMACAO
+}
+
+enum StatusPendencia {
+  ABERTA
+  CUMPRIDA
+  EXPIRADA
+  CANCELADA
+}
+
+enum TipoVinculo {
+  APENSO
+  ANEXACAO
+  REFERENCIA
+}
+
+enum TipoAssinatura {
+  ELETRONICA_SIMPLES
+  GOV_BR
+  ICP_BRASIL
+}
+
+enum TipoEvento {
+  PROCESSO_CRIADO
+  PROCESSO_RECEBIDO
+  PROCESSO_ATUALIZADO
+  PROCESSO_TRANSFERIDO
+  PROCESSO_CONCLUIDO
+  PROCESSO_COMENTARIO
+  PAGAMENTO_PENDENTE
+  PAGAMENTO_CONFIRMADO
+  DOCUMENTO_SOLICITADO
+  PRAZO_PROXIMO_VENCIMENTO
+  PRAZO_VENCIDO
+  PENDENCIA_ABERTA
+  PENDENCIA_CUMPRIDA
+  PENDENCIA_EXPIRADA
+  DOCUMENTO_ASSINADO
 }
 
 // ── Identidade local (espelho do CUD) ──────────────────────────
@@ -108,6 +176,8 @@ model Usuario {
   lotacoes            UsuarioOrganograma[]
   processosAtribuidos Processo[]
   movimentacoes       MovimentacaoProcesso[]
+  assuntosAtribuidos  AssuntoUsuarioAtribuido[]
+  notificacoes        Notificacao[]
 }
 
 // ── Organograma (seção 1) ──────────────────────────────────────
@@ -155,10 +225,11 @@ model ResponsavelOrganograma {
 }
 
 model UsuarioOrganograma {
-  id            String  @id @default(uuid())
-  usuarioId     String
-  organogramaId String
-  ehPrimario    Boolean @default(false)
+  id              String  @id @default(uuid())
+  usuarioId       String
+  organogramaId   String
+  ehPrimario      Boolean @default(false)
+  podeRecepcionar Boolean @default(false) // legado NEA: ACESSO.PODE_RECEPCIONAR — quem pode dar recepção no setor
 
   usuario     Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   organograma Organograma @relation(fields: [organogramaId], references: [id], onDelete: Cascade)
@@ -187,6 +258,7 @@ model ParteInteressada {
 
   processosRequeridos Processo[]
   interessados        ProcessoInteressado[]
+  notificacoes        NotificacaoCidadao[]
 }
 
 // ── Assuntos (seção 4) ─────────────────────────────────────────
@@ -202,27 +274,30 @@ model TipoDocumento {
 }
 
 model Assunto {
-  id                            String            @id @default(uuid())
-  codigo                        Int
-  secretariaId                  String // id do Organograma (secretaria)
-  nome                          String
-  disponivelParaNovasAberturas  Boolean           @default(true)
-  permiteAberturaExterna        Boolean           @default(true)
-  permiteAberturaInterna        Boolean           @default(true)
-  permiteAnonimo                Boolean           @default(false)
-  permiteSigiloso               Boolean           @default(false)
-  exigeObservacao               Boolean           @default(false)
-  exigeComentarios              Boolean           @default(false)
-  permiteTramitacao             Boolean           @default(true)
-  tipoAtribuicao                TipoAtribuicao    @default(RESPONSAVEL)
-  prazoLegalDias                Int?
-  tipoContagemPrazo             TipoContagemPrazo @default(DIAS_UTEIS)
-  organogramaDestinoId          String?
-  ativo                         Boolean           @default(true)
+  id                           String            @id @default(uuid())
+  codigo                       Int
+  secretariaId                 String // id do Organograma (secretaria)
+  nome                         String
+  disponivelParaNovasAberturas Boolean           @default(true)
+  permiteAberturaExterna       Boolean           @default(true)
+  permiteAberturaInterna       Boolean           @default(true)
+  permiteAnonimo               Boolean           @default(false)
+  permiteSigiloso              Boolean           @default(false)
+  exigeObservacao              Boolean           @default(false)
+  exigeComentarios             Boolean           @default(false)
+  permiteTramitacao            Boolean           @default(true)
+  tipoAtribuicao               TipoAtribuicao    @default(RESPONSAVEL)
+  prazoLegalDias               Int?
+  tipoContagemPrazo            TipoContagemPrazo @default(DIAS_UTEIS)
+  organogramaDestinoId         String?
+  seguirProcedimento           Boolean           @default(false) // legado NEA: ASSUNTO.SEGUIR_CRITERIO
+  ativo                        Boolean           @default(true)
 
-  documentos       AssuntoDocumento[]
-  camposAdicionais CampoAdicionalAssunto[]
-  processos        Processo[]
+  documentos         AssuntoDocumento[]
+  camposAdicionais   CampoAdicionalAssunto[]
+  procedimentos      ProcedimentoAssunto[]
+  usuariosAtribuidos AssuntoUsuarioAtribuido[]
+  processos          Processo[]
 
   @@unique([codigo, secretariaId])
 }
@@ -258,35 +333,49 @@ model SequenciaProtocolo {
 }
 
 model Processo {
-  id                   String         @id @default(uuid())
-  numeroProtocolo      String         @unique
-  numeroSequencial     Int
-  ano                  Int
-  assuntoId            String
-  requerenteId         String?
-  motivo               String?
-  status               StatusProcesso @default(ABERTO)
-  organogramaAtualId   String
-  organogramaOrigemId  String?
-  organogramaDestinoId String?
-  usuarioAtribuidoId   String?
-  estaBloqueado        Boolean        @default(false)
-  ehAnonimo            Boolean        @default(false)
-  nivelSigilo          NivelSigilo    @default(PUBLICO)
-  dataLimite           DateTime?
-  estaAtrasado         Boolean        @default(false)
-  criadoEm             DateTime       @default(now())
-  atualizadoEm         DateTime       @updatedAt
+  id                      String         @id @default(uuid())
+  numeroProtocolo         String         @unique
+  numeroSequencial        Int
+  ano                     Int
+  assuntoId               String
+  requerenteId            String?
+  motivo                  String?
+  status                  StatusProcesso @default(ABERTO)
+  organogramaAtualId      String
+  organogramaOrigemId     String?
+  organogramaDestinoId    String?
+  usuarioAtribuidoId      String?
+  estaBloqueado           Boolean        @default(false)
+  ehAnonimo               Boolean        @default(false)
+  nivelSigilo             NivelSigilo    @default(PUBLICO)
+  dataLimite              DateTime?
+  estaAtrasado            Boolean        @default(false)
+  // acompanhamento sem login (legado NEA: PROCESSO.SENHAWEB) — essencial p/ processo anônimo
+  codigoConsultaPublica   String?        @unique
+  // localização do arquivo físico quando ARQUIVADO (legado NEA: ARQUIVO/GAVETA/PRATELEIRA/CAIXA)
+  arquivoFisicoCaixa      String?
+  arquivoFisicoPrateleira String?
+  arquivoFisicoGaveta     String?
+  criadoEm                DateTime       @default(now())
+  atualizadoEm            DateTime       @updatedAt
 
   assunto          Assunto           @relation(fields: [assuntoId], references: [id])
   requerente       ParteInteressada? @relation(fields: [requerenteId], references: [id])
   organogramaAtual Organograma       @relation(fields: [organogramaAtualId], references: [id])
   usuarioAtribuido Usuario?          @relation(fields: [usuarioAtribuidoId], references: [id])
 
-  movimentacoes    MovimentacaoProcesso[]
-  interessados     ProcessoInteressado[]
-  camposAdicionais ProcessoCampoAdicional[]
-  documentos       Documento[]
+  movimentacoes         MovimentacaoProcesso[]
+  interessados          ProcessoInteressado[]
+  camposAdicionais      ProcessoCampoAdicional[]
+  documentos            Documento[]
+  procedimentos         ProcessoProcedimento[]
+  itensRemessa          GuiaRemessaItem[]
+  pendencias            PendenciaProcesso[]
+  vinculosComoPrincipal ProcessoVinculo[]          @relation("VinculoPrincipal")
+  vinculosComoVinculado ProcessoVinculo[]          @relation("VinculoVinculado")
+  credenciais           CredencialAcessoProcesso[]
+  notificacoes          Notificacao[]
+  notificacoesCidadao   NotificacaoCidadao[]
 
   @@index([assuntoId])
   @@index([organogramaAtualId])
@@ -308,8 +397,10 @@ model MovimentacaoProcesso {
   organogramaDestinoId   String?
   criadoEm               DateTime         @default(now())
 
-  processo Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
-  usuario  Usuario? @relation(fields: [usuarioId], references: [id])
+  processo    Processo              @relation(fields: [processoId], references: [id], onDelete: Cascade)
+  usuario     Usuario?              @relation(fields: [usuarioId], references: [id])
+  documentos  Documento[]
+  assinaturas AssinaturaDocumento[]
 
   @@index([processoId])
 }
@@ -341,16 +432,21 @@ model ProcessoCampoAdicional {
 model Documento {
   id                 String   @id @default(uuid())
   processoId         String
+  movimentacaoId     String? // andamento que originou a peça (legado NEA: DOCUMENTO_PROCESSO.ID_SEQUENCIAL_ANDAMENTO)
   tipoDocumentoId    String?
   nome               String
   urlArquivo         String
+  hashArquivo        String? // SHA-256 p/ integridade (legado NEA: HASH_ARQUIVO) — base p/ RN-066
+  tamanhoBytes       Int?
   numeroOrdem        Int?
   numeroFolhaInicial Int?
   numeroFolhaFinal   Int?
   criadoEm           DateTime @default(now())
 
-  processo      Processo       @relation(fields: [processoId], references: [id], onDelete: Cascade)
-  tipoDocumento TipoDocumento? @relation(fields: [tipoDocumentoId], references: [id])
+  processo      Processo              @relation(fields: [processoId], references: [id], onDelete: Cascade)
+  movimentacao  MovimentacaoProcesso? @relation(fields: [movimentacaoId], references: [id])
+  tipoDocumento TipoDocumento?        @relation(fields: [tipoDocumentoId], references: [id])
+  assinaturas   AssinaturaDocumento[]
 
   @@index([processoId])
 }
@@ -362,4 +458,293 @@ model FeriadoMunicipal {
   data         DateTime
   descricao    String
   ehRecorrente Boolean  @default(false)
+}
+
+// ── Procedimentos / workflow por assunto (legado NEA: PROCEDIMENTO) ─────────
+
+/// Passo predefinido do fluxo de um assunto. Quando Assunto.seguirProcedimento,
+/// o processo deve percorrer os procedimentos na ordem definida.
+model ProcedimentoAssunto {
+  id            String  @id @default(uuid())
+  assuntoId     String
+  ordem         Int
+  nome          String
+  organogramaId String? // setor responsável pelo passo (id do Organograma)
+  prazoDias     Int?
+
+  assunto   Assunto                @relation(fields: [assuntoId], references: [id], onDelete: Cascade)
+  execucoes ProcessoProcedimento[]
+
+  @@unique([assuntoId, ordem])
+}
+
+/// Execução de um procedimento em um processo concreto (legado NEA: PROCESSOPROCEDIMENTO).
+model ProcessoProcedimento {
+  id             String    @id @default(uuid())
+  processoId     String
+  procedimentoId String
+  executado      Boolean   @default(false)
+  executadoEm    DateTime?
+  executadoPorId String? // Usuario.id (snapshot — sem FK p/ não acoplar histórico)
+
+  processo     Processo            @relation(fields: [processoId], references: [id], onDelete: Cascade)
+  procedimento ProcedimentoAssunto @relation(fields: [procedimentoId], references: [id])
+
+  @@unique([processoId, procedimentoId])
+}
+
+// ── Guia de remessa: tramitação em lote + recepção (legado NEA: GUIA_REMESSA) ─
+
+/// Lote de remessa: um setor envia vários processos de uma vez. O destino confirma
+/// o recebimento por item (recepção/visto). Substitui a tramitação 1-a-1 quando há volume.
+model GuiaRemessa {
+  id                  String            @id @default(uuid())
+  numero              Int               @unique // sequencial da remessa
+  organogramaOrigemId String // id do Organograma de origem
+  criadoPorId         String // Usuario.id que emitiu a remessa
+  status              StatusGuiaRemessa @default(ABERTA)
+  finalizadaEm        DateTime?
+  finalizadaPorId     String?
+  criadoEm            DateTime          @default(now())
+
+  itens GuiaRemessaItem[]
+}
+
+model GuiaRemessaItem {
+  id                   String    @id @default(uuid())
+  guiaRemessaId        String
+  processoId           String
+  organogramaDestinoId String // id do Organograma destino
+  usuarioDestinoId     String? // atribuição direta a um servidor, se houver
+  despacho             String?
+  prazoDias            Int?
+  // recepção no destino (legado NEA: LOCALPROCESSO.VISTO / FUNCIONARIO_RECEBIMENTO)
+  recebidoEm           DateTime?
+  recebidoPorId        String? // Usuario.id de quem recepcionou
+  visto                String? // nome/carimbo de quem recebeu (snapshot)
+
+  guiaRemessa GuiaRemessa @relation(fields: [guiaRemessaId], references: [id], onDelete: Cascade)
+  processo    Processo    @relation(fields: [processoId], references: [id])
+
+  @@index([processoId])
+}
+
+// ── Modelos de documento (legado NEA: MODELODOCUMENTO) ─────────────────────
+
+/// Template reutilizável de despacho/parecer/capa/ofício/termo. Base p/ RN-036.
+model ModeloDocumento {
+  id       String              @id @default(uuid())
+  nome     String
+  tipo     TipoModeloDocumento
+  conteudo String // HTML/markdown do template
+  ativo    Boolean             @default(true)
+  criadoEm DateTime            @default(now())
+}
+
+// ── Auditoria estruturada (RN-051..053 — derivado de NA_AUDITORIA do legado) ─
+
+/// Cabeçalho de auditoria. Imutável (RN-052). Sem FK para Usuario: o log deve
+/// sobreviver à remoção do ator — guarda usuarioId + snapshot do nome.
+model LogAuditoria {
+  id            String                @id @default(uuid())
+  tabela        String // nome do model afetado (ex.: "Processo")
+  chaveRegistro String // PK do registro afetado (legado NEA: CHAVE_REGISTRO)
+  operacao      TipoOperacaoAuditoria
+  usuarioId     String? // Usuario.id (null = ação de sistema/rotina)
+  usuarioNome   String? // snapshot do nome do ator
+  enderecoIp    String? // RN-053
+  userAgent     String? // RN-053
+  criadoEm      DateTime              @default(now())
+
+  itens LogAuditoriaItem[]
+
+  @@index([tabela, chaveRegistro])
+  @@index([usuarioId])
+  @@index([criadoEm])
+}
+
+/// Diferença por campo (legado NEA: NA_AUDITORIA_ITEM) — uma linha por campo alterado.
+/// Substitui o blob JSON: permite consultar histórico por campo específico.
+model LogAuditoriaItem {
+  id            String  @id @default(uuid())
+  auditoriaId   String
+  campo         String
+  valorAnterior String?
+  valorNovo     String?
+
+  auditoria LogAuditoria @relation(fields: [auditoriaId], references: [id], onDelete: Cascade)
+
+  @@index([auditoriaId])
+}
+
+/// Configuração de quais tabelas/operações auditar (legado NEA: NA_AUDITORIA_TABELA).
+model ConfiguracaoAuditoria {
+  id                 String  @id @default(uuid())
+  tabela             String  @unique
+  nomeAmigavel       String
+  auditarInsercao    Boolean @default(true)
+  auditarAtualizacao Boolean @default(true)
+  auditarExclusao    Boolean @default(true)
+}
+
+// ── Tier 1: fundacional ────────────────────────────────────────────────────
+
+/// Parâmetros do sistema em key-value (seção 13). Ex.: TAMANHO_MAXIMO_ARQUIVO_MB,
+/// TAMANHO_PREENCHIMENTO_PROTOCOLO, SMTP_HOST. Evita valores hardcoded no código.
+model ConfiguracaoSistema {
+  id           String   @id @default(uuid())
+  chave        String   @unique
+  valor        String
+  descricao    String?
+  atualizadoEm DateTime @updatedAt
+}
+
+/// Usuários elegíveis quando Assunto.tipoAtribuicao = USUARIOS_ESPECIFICOS (RN-021 / §4.5).
+model AssuntoUsuarioAtribuido {
+  id        String @id @default(uuid())
+  assuntoId String
+  usuarioId String
+
+  assunto Assunto @relation(fields: [assuntoId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@unique([assuntoId, usuarioId])
+}
+
+// ── Tier 2: pendências e vínculos de processo ──────────────────────────────
+
+/// Solicitação ao cidadão que suspende a contagem de prazo (§18 / RN-072..075).
+model PendenciaProcesso {
+  id               String          @id @default(uuid())
+  processoId       String
+  tipo             TipoPendencia
+  descricao        String
+  prazoCidadaoDias Int
+  dataAbertura     DateTime        @default(now())
+  dataLimite       DateTime
+  status           StatusPendencia @default(ABERTA)
+  criadoPorId      String // Usuario.id (snapshot — sem FK p/ não acoplar histórico)
+  cumpridaEm       DateTime?
+
+  processo Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+
+  @@index([processoId])
+}
+
+/// Vínculo entre processos: apenso, anexação ou referência (§15 / RN-061..064).
+model ProcessoVinculo {
+  id                  String      @id @default(uuid())
+  processoPrincipalId String
+  processoVinculadoId String
+  tipoVinculo         TipoVinculo
+  motivo              String?
+  criadoPorId         String // Usuario.id (snapshot)
+  dataVinculo         DateTime    @default(now())
+  ativo               Boolean     @default(true)
+
+  processoPrincipal Processo @relation("VinculoPrincipal", fields: [processoPrincipalId], references: [id])
+  processoVinculado Processo @relation("VinculoVinculado", fields: [processoVinculadoId], references: [id])
+
+  @@unique([processoPrincipalId, processoVinculadoId, tipoVinculo])
+  @@index([processoVinculadoId])
+}
+
+// ── Tier 3: assinatura e sigilo nominal ────────────────────────────────────
+
+/// Assinatura eletrônica/digital de uma peça (documentoId) OU parecer (movimentacaoId).
+/// §16 / RN-065..068. signatarioId é snapshot (sem FK): a assinatura é imutável e deve
+/// sobreviver a mudanças no usuário. hashDocumento congela o conteúdo no ato (RN-066).
+model AssinaturaDocumento {
+  id                String         @id @default(uuid())
+  documentoId       String? // assina uma peça OU
+  movimentacaoId    String? // um parecer/movimentação
+  signatarioId      String // Usuario.id (snapshot)
+  tipoAssinatura    TipoAssinatura
+  hashDocumento     String // SHA-256 do conteúdo no momento da assinatura (RN-066)
+  codigoVerificacao String         @unique // RN-067: página pública de verificação
+  carimboTempo      DateTime? // timestamp do provedor externo (ICP-Brasil/gov.br)
+  dataAssinatura    DateTime       @default(now())
+  ativo             Boolean        @default(true)
+
+  documento    Documento?            @relation(fields: [documentoId], references: [id])
+  movimentacao MovimentacaoProcesso? @relation(fields: [movimentacaoId], references: [id])
+
+  @@index([documentoId])
+  @@index([movimentacaoId])
+}
+
+/// Acesso nominal a processo SIGILOSO/SECRETO (RN-078/079). Independe do setor;
+/// concedida pelo chefe/admin e revogável (ativo = false). concedidoPorId é snapshot.
+model CredencialAcessoProcesso {
+  id             String   @id @default(uuid())
+  processoId     String
+  usuarioId      String // Usuario.id do credenciado
+  concedidoPorId String // Usuario.id de quem concedeu (chefe/admin)
+  motivo         String?
+  dataConcessao  DateTime @default(now())
+  ativo          Boolean  @default(true)
+
+  processo Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+
+  @@unique([processoId, usuarioId])
+  @@index([processoId])
+  @@index([usuarioId])
+}
+
+// ── Tier 4: notificações (seção 9) ─────────────────────────────────────────
+
+/// Regra de notificação por evento (RN-048). assuntoId/organogramaId nulos = aplica a
+/// todos os processos. Define quais destinatários acionar para o (evento × assunto × setor).
+model ConfiguracaoNotificacao {
+  id                        String     @id @default(uuid())
+  assuntoId                 String? // id do Assunto (null = qualquer)
+  organogramaId             String? // id do Organograma (null = qualquer)
+  tipoEvento                TipoEvento
+  notificarCidadao          Boolean    @default(false)
+  notificarUsuarioAtribuido Boolean    @default(false)
+  notificarUsuariosSetor    Boolean    @default(false)
+  notificarResponsavel      Boolean    @default(false)
+  notificarEmail            Boolean    @default(false)
+  notificarSistema          Boolean    @default(true)
+  modeloEmail               String? // template do e-mail (RN-049)
+  ativo                     Boolean    @default(true)
+
+  @@unique([assuntoId, organogramaId, tipoEvento])
+}
+
+/// Notificação interna do sistema (RN-050). Marcada como lida individualmente.
+model Notificacao {
+  id         String     @id @default(uuid())
+  usuarioId  String // Usuario.id destinatário
+  processoId String?
+  tipoEvento TipoEvento
+  titulo     String
+  mensagem   String
+  lida       Boolean    @default(false)
+  lidaEm     DateTime?
+  criadoEm   DateTime   @default(now())
+
+  usuario  Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  processo Processo? @relation(fields: [processoId], references: [id])
+
+  @@index([usuarioId, lida])
+}
+
+/// Notificação ao cidadão por e-mail (RN-049). Destinatário = requerente (ParteInteressada).
+model NotificacaoCidadao {
+  id                 String     @id @default(uuid())
+  parteInteressadaId String
+  processoId         String?
+  tipoEvento         TipoEvento
+  assunto            String // assunto do e-mail
+  corpo              String
+  enviada            Boolean    @default(false)
+  enviadaEm          DateTime?
+  tentativas         Int        @default(0)
+  criadoEm           DateTime   @default(now())
+
+  parteInteressada ParteInteressada @relation(fields: [parteInteressadaId], references: [id])
+  processo         Processo?        @relation(fields: [processoId], references: [id])
+
+  @@index([parteInteressadaId])
 }

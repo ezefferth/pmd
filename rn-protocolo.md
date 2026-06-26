@@ -66,15 +66,25 @@ Versão: 2.4.0 | Stack: Next.js · Prisma ORM · PostgreSQL (Supabase Self-Hoste
 
 ## 2. CONTROLE DE ACESSO
 
-### 2.1 Perfis e Permissões
+> ⚠️ **Delegado ao CUD — o SPD NÃO modela tabelas locais de perfil/grupo/permissão.**
+> A identidade e a autorização são do CUD (ver `CLAUDE.md` raiz). O SPD **não** possui `Perfil`,
+> `GrupoAcesso` nem `Permissao` no seu schema: ele **consome** o CUD via
+> `GET /acessos/verificar?usuarioId={authId}&sistemaId=spd&permissao=MODULO:ACAO`, com cache de TTL curto.
+> Os nomes `Perfil`/`GrupoAcesso` abaixo descrevem **conceitos do CUD**, não entidades do banco `spd`.
 
-- O sistema adota controle de acesso baseado em **perfis** (`Perfil`) e **grupos** (`GrupoAcesso`).
+### 2.1 Perfis e Permissões (conceitos do CUD)
+
+- O controle de acesso baseia-se em **perfis** e **grupos** mantidos **no CUD**.
 - Um usuário tem **um perfil** e pode pertencer a **múltiplos grupos**.
-- As permissões efetivas são a **união** das permissões do perfil + todos os grupos.
+- As permissões efetivas são a **união** das permissões do perfil + todos os grupos — resolvidas pelo CUD;
+  o SPD recebe a lista pronta na resposta de `GET /acessos/verificar`.
 
 - **RN-006:** Permissões são definidas pela combinação `módulo × ação`, no formato string `MODULO:ACAO` (contrato de integração com o CUD, em pt-BR). Módulos disponíveis: `USUARIOS, PROCESSOS, MOVIMENTACOES, ORGANOGRAMA, ASSUNTOS, DOCUMENTOS, PAGAMENTOS, RELATORIOS, ADMIN, NOTIFICACOES, CADASTROS, AUDITORIA`.
 
 - Ações disponíveis: `LER, CRIAR, ATUALIZAR, EXCLUIR, APROVAR, TRANSFERIR, CONCLUIR, ARQUIVAR, EXPORTAR, ATRIBUIR`.
+
+- **RN-006.1:** O `Usuario` no schema `spd` é apenas o **espelho** da conta CUD (correlação por `authId`) — não
+  carrega perfil nem permissões. A verificação de permissão é sempre feita contra o CUD em tempo de ação.
 
 ### 2.2 Usuário Admin
 
@@ -407,7 +417,7 @@ Enum `TipoMovimentacao`:
 
 ## 10. AUDITORIA
 
-- **RN-051:** **Todo** `CREATE`, `UPDATE`, `DELETE` em entidades críticas (`Processo`, `MovimentacaoProcesso`, `Usuario`, `Assunto`, `Organograma`, `GuiaPagamento`) gera um registro em `LogAuditoria` com `valorAnterior` e `valorNovo` em JSON.
+- **RN-051:** **Todo** `CREATE`, `UPDATE`, `DELETE` em entidades críticas (`Processo`, `MovimentacaoProcesso`, `Assunto`, `Organograma`) gera um registro em `LogAuditoria`. ⚠️ **A estrutura desta RN foi superada pela RN-090:** em vez de `valorAnterior`/`valorNovo` em **JSON** num único registro, usa-se o modelo **field-level** `LogAuditoria` (cabeçalho) + `LogAuditoriaItem` (uma linha por campo alterado). Quais entidades/operações são auditadas é controlado por `ConfiguracaoAuditoria` (RN-092). Use sempre a RN-090..093 como referência de implementação.
 
 - **RN-052:** O log de auditoria é **imutável**. Nenhum usuário (inclusive admin) pode alterar ou excluir registros de `LogAuditoria`.
 

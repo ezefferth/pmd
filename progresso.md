@@ -11,7 +11,7 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 |---------|------------------|---------|----------|
 | **CUD** (Central de Usuários) | ✅ `rn-central-de-usuarios.md` v1.5.0 | ✅ **completo** (auth-api + sync RH + grupos de acesso) | ✅ admin-web · ✅ conta-web |
 | **RH** (Recursos Humanos) | ✅ `rn-recursos-humanos.md` v1.0.0 | ✅ api: schema + domínios + sync→CUD (#35/#39/#40) | ✅ rh-web (#61): unidades, carreiras, cargos, servidores, movimentações |
-| **SPD** (Protocolo) | ✅ `rn-protocolo.md` v2.3.1 | 🟡 schema + scaffold (#42) + abertura portal (#54) + tramitação (#59) | 🟡 portal cidadão + cadastros internos + tramitação (processos) |
+| **SPD** (Protocolo) | ✅ `rn-protocolo.md` v2.4.0 | 🟡 schema (estendido c/ legado NEA) + scaffold (#42) + abertura portal (#54) + tramitação (#59) | 🟡 portal cidadão + cadastros internos + tramitação (processos) |
 
 > Documentos transversais: `CLAUDE.md` (convenção pt-BR + integração), `git-workflow.md`,
 > `marca/` (tema multi-município), `progresso.md` (este).
@@ -77,11 +77,24 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 - **Toasts** sonner + `FormToast` (#52); cadastros internos (organograma, assuntos) com `FormToast`.
 - **Portal do cidadão** (#54): grupo `portal/` separado da área interna. `abrir` (cascata secretaria→assunto→motivo + campos adicionais + requerente), gera `numeroProtocolo` `NNNNNN/AAAA` atômico (RN-022/023) + 1ª `MovimentacaoProcesso` CRIADO; `meus-processos` (acompanhamento por CPF). Login espelha CPF do CUD (`/perfil`).
 - **Tramitação interna** (#59): área `(interno)/processos` (lista com filtro de status + detalhe com timeline). Server actions `src/actions/tramitacao.ts` (receber, atribuir, andamento, transferir, concluir, arquivar, reabrir, cancelar) — cada uma valida status de origem, cria `MovimentacaoProcesso` e atualiza `status`/`organogramaAtual`/atribuição em transação. **Responsável inativo** via `src/lib/responsavel.ts` (`resolverDestinoAtivo`, RN-087/088) + `realocarProcessosDeResponsavel` (RN-087/089). Toasts em todas as ações.
+- **Documentos (peças)** (#63): `src/lib/storage.ts` (Supabase Storage, bucket privado `spd-documentos`, URL assinada) + `src/actions/documentos.ts` (`anexarDocumento`: upload + `Documento` com `numeroOrdem` sequencial RN-069 + `MovimentacaoProcesso` JUNTADA_DOCUMENTO). UI no detalhe do processo: lista de peças com download (URL assinada) + upload (`FormToast` com `input file`). Usa apenas campos do `Documento` da main (schema não alterado — há WIP do usuário).
+- **Schema estendido a partir do legado NEA** (engenharia reversa de `banco_protocolo_nea.sql`, 2026-06-26): RN passou a **v2.4.0** (nova seção 20, RN-090..101; seção 2 marcada delegada ao CUD; RN-051 → auditoria field-level). Adições **aditivas** ao `schema.prisma`:
+  - *Auditoria field-level* (derivada de `NA_AUDITORIA`): `LogAuditoria` (cabeçalho, sem FK p/ ator) + `LogAuditoriaItem` (1 linha por campo) + `ConfiguracaoAuditoria` (liga/desliga por tabela).
+  - *Tramitação em lote + recepção* (`GUIA_REMESSA`): `GuiaRemessa`/`GuiaRemessaItem` + `UsuarioOrganograma.podeRecepcionar` + movimentos `REMESSA`/`RECEPCAO`.
+  - *Fluxo por assunto* (`PROCEDIMENTO`): `ProcedimentoAssunto`/`ProcessoProcedimento` + `Assunto.seguirProcedimento`.
+  - *Modelos de documento* (`MODELODOCUMENTO`): `ModeloDocumento`.
+  - *Campos*: `Documento.movimentacaoId`/`hashArquivo`/`tamanhoBytes`; `Processo.codigoConsultaPublica` + `arquivoFisico*`.
+  - **Tier 1** (fundacional): `ConfiguracaoSistema` (key-value), `AssuntoUsuarioAtribuido` (RN-021).
+  - **Tier 2** (ciclo de vida): `PendenciaProcesso` (§18), `ProcessoVinculo` (§15, apenso/anexação) — tirando do limbo enums já existentes (`SOLICITACAO_PENDENCIA`, `APENSAMENTO`...).
+  - **Tier 3** (assinatura/sigilo): `AssinaturaDocumento` (+`TipoAssinatura`, §16/RN-065..068, usa `hashDocumento`+`codigoVerificacao`) e `CredencialAcessoProcesso` (acesso nominal a `SIGILOSO`/`SECRETO`, RN-078/079).
+  - **Tier 4** (notificações, §9/RN-048..050): `ConfiguracaoNotificacao` (regra por evento×assunto×setor, com flags de destinatário), `Notificacao` (interna, lida individual) e `NotificacaoCidadao` (e-mail ao requerente) + enum `TipoEvento` (15 valores).
+  - **Schema agora cobre a RN inteira** (núcleo + Tiers 1–4); único bloco fora = Betha/guias. Migrations aplicadas: `..._auditoria_remessa_procedimentos_pendencias_vinculos` (281 l.) + `..._assinatura_credencial_sigilo` + `..._notificacoes`. Ver "Banco (dev)".
 
 ### Falta no SPD
 - **Auth via CUD** (servidor e cidadão — #1): login básico já consome CUD; falta consolidar guarda das rotas internas e verificação de permissão
-- Assinatura de parecer (RN-065/068), pendências/prazos (RN-072/073), sigilo/credencial (RN-077), notificações (RN-059)
-- Documentos via Supabase Storage
+- **Lógica/UI sobre o schema novo** (modelos criados, sem actions/telas ainda): pendências/prazos (RN-072/073), apenso/anexação (§15), guia de remessa+recepção (RN-094/095), procedimentos por assunto (RN-096), auditoria field-level (RN-090).
+- **Schema completo vs RN** ✅ — falta a **lógica/actions/UI** sobre os models (auditoria, remessa, pendências, vínculos, assinatura, credencial, notificações). Modelagem encerrada; só Betha/guias fora de escopo.
+- Upload de documentos pelo cidadão no portal (hoje só na área interna)
 
 ---
 
@@ -113,7 +126,8 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 ## Banco (dev) — status
 - Infra Supabase **de pé** (containers rodando); **GoTrue/auth está parado** — rodar `supabase start` para subir o auth antes de testar login.
 - **RH**: migration `init` **aplicada** (tabelas criadas no schema `rh`).
-- **CUD** e **SPD**: os schemas `cud`/`spd` ainda têm **tabelas legadas** do projeto antigo (keycloak/`users`). As migrations foram **geradas** (`prisma/migrations/*`), mas **não aplicadas** — aplicar exige `prisma migrate reset` (ação destrutiva que o Prisma bloqueia para IA). **Ação do usuário:** rodar `pnpm prisma migrate reset` em `sistemas/cud/auth-api` e `sistemas/spd/web` (consentindo), depois `pnpm prisma migrate deploy`. Não resetei sozinho (guardrail).
+- **SPD**: ✅ **resetado e aplicado** (2026-06-26, com consentimento). O schema `spd` tinha a versão **inglesa abandonada** (migration `20260616012247_init`, 16/jun) divergindo da init pt-BR commitada — sem ancestral comum. Feito `prisma migrate reset` (só o schema `spd`) → reaplicada `20260626030001_init` (pt-BR) + `20260626132219_auditoria_remessa_procedimentos_pendencias_vinculos`. `migrate status`: **up to date**. ⚠️ Se outro ambiente de dev ainda tiver a migration inglesa `20260616012247_init`, também precisa de reset.
+- **CUD**: o schema `cud` ainda tem **tabelas legadas** do projeto antigo (keycloak/`users`). As migrations foram **geradas** (`prisma/migrations/*`), mas **não aplicadas** — aplicar exige `prisma migrate reset` (ação destrutiva que o Prisma bloqueia para IA). **Ação do usuário:** rodar `pnpm prisma migrate reset` em `sistemas/cud/auth-api` (consentindo), depois `pnpm prisma migrate deploy`.
   - CUD: migrations `20260626030000_init` + `20260626120000_grupos_acesso` (incremental, valida contra o DDL do Prisma).
 - `.env` de cada app criados localmente a partir do `.env.example` (não versionados).
 
@@ -130,7 +144,7 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 #1 (auth SPD via CUD — parcial).
 (#3 abertura cidadão SPD → **concluída** via #54; #6 responsável inativo → **concluída** via #59; #52 toasts SPD; #55/#56 toasts CUD; #57/#58 grupos de acesso; #18 sync, #34/#35 RH scaffold, #38/#39 RH domínios, #41/#42 SPD scaffold — concluídos.)
 
-**Próximo na fila autônoma:** (6) **documentos no SPD** via Supabase Storage (upload/anexo de peças aos processos).
+**Próximo na fila autônoma:** fila principal (1–6) concluída. Refinos de maior valor: gating de permissão via CUD `acessos/verificar` no SPD; selects/paginação no admin-web; upload de documentos pelo cidadão no portal; edição de cadastros no rh-web.
 
 ---
 
