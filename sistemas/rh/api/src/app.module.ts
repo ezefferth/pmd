@@ -6,6 +6,7 @@ import { CarreirasModule } from './carreiras/carreiras.module'
 import { CargosModule } from './cargos/cargos.module'
 import { ServidoresModule } from './servidores/servidores.module'
 import { MovimentacoesModule } from './movimentacoes/movimentacoes.module'
+import { SincronizacaoModule } from './sincronizacao/sincronizacao.module'
 import { AppController } from './app.controller'
 
 @Module({
@@ -17,6 +18,7 @@ import { AppController } from './app.controller'
     CargosModule,
     ServidoresModule,
     MovimentacoesModule,
+    SincronizacaoModule,
   ],
   controllers: [AppController],
 })
