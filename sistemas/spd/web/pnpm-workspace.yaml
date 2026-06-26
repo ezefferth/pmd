@@ -1,9 +1,3 @@
-allowBuilds:
-  '@prisma/client': set this to true or false
-  '@prisma/engines': set this to true or false
-  prisma: set this to true or false
-  sharp: set this to true or false
-  unrs-resolver: set this to true or false
 # Builds nativos permitidos no install (Prisma gera o client; sharp/resolver do Next)
 onlyBuiltDependencies:
   - '@prisma/client'
