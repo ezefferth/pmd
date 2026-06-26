@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { FormToast } from '@/components/form-toast'
 import { criarAssunto } from '@/actions/assuntos'
 
 export default async function AssuntosPage() {
@@ -44,7 +45,7 @@ export default async function AssuntosPage() {
         </table>
       </div>
 
-      <form action={criarAssunto} className="max-w-md space-y-3 rounded-lg border p-4">
+      <FormToast acao={criarAssunto} sucesso="Assunto criado" className="max-w-md space-y-3 rounded-lg border p-4">
         <h2 className="font-semibold">Novo assunto</h2>
         <select name="secretariaId" required className="w-full rounded border px-3 py-2 text-sm">
           <option value="">Secretaria…</option>
@@ -65,7 +66,7 @@ export default async function AssuntosPage() {
         </label>
         <p className="text-xs opacity-60">O código é gerado automaticamente por secretaria (RN-016).</p>
         <button className="rounded bg-primaria px-4 py-2 text-sm font-medium text-white">Criar assunto</button>
-      </form>
+      </FormToast>
     </section>
   )
 }

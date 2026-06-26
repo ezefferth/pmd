@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { FormToast } from '@/components/form-toast'
 import { criarNivel, criarUnidade } from '@/actions/organograma'
 
 export default async function OrganogramaPage() {
@@ -27,12 +28,12 @@ export default async function OrganogramaPage() {
             {niveis.length === 0 && <li className="px-3 py-2 opacity-60">Nenhum nível.</li>}
           </ul>
         </div>
-        <form action={criarNivel} className="space-y-3 rounded-lg border p-4">
+        <FormToast acao={criarNivel} sucesso="Nível criado" className="space-y-3 rounded-lg border p-4">
           <h2 className="font-semibold">Novo nível</h2>
           <input name="nivel" type="number" min={1} placeholder="Número (1..5)" required className="w-full rounded border px-3 py-2 text-sm" />
           <input name="nome" placeholder="Nome (ex.: Secretaria)" required className="w-full rounded border px-3 py-2 text-sm" />
           <button className="rounded bg-primaria px-4 py-2 text-sm font-medium text-white">Criar nível</button>
-        </form>
+        </FormToast>
       </div>
 
       {/* Unidades */}
@@ -60,7 +61,7 @@ export default async function OrganogramaPage() {
             </table>
           </div>
         </div>
-        <form action={criarUnidade} className="space-y-3 rounded-lg border p-4">
+        <FormToast acao={criarUnidade} sucesso="Unidade criada" className="space-y-3 rounded-lg border p-4">
           <h2 className="font-semibold">Nova unidade</h2>
           <input name="codigo" placeholder="Código (ex.: 001.001)" required className="w-full rounded border px-3 py-2 text-sm" />
           <input name="sigla" placeholder="Sigla (ex.: SEMFAZ)" className="w-full rounded border px-3 py-2 text-sm" />
@@ -77,7 +78,7 @@ export default async function OrganogramaPage() {
             ))}
           </select>
           <button className="rounded bg-primaria px-4 py-2 text-sm font-medium text-white">Criar unidade</button>
-        </form>
+        </FormToast>
       </div>
     </section>
   )
