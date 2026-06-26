@@ -1,0 +1,23 @@
+import type { Config } from 'tailwindcss'
+
+// Cores mapeadas para variáveis CSS injetadas pela marca do município (ver src/lib/tema.ts)
+const config: Config = {
+  content: ['./src/**/*.{ts,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+        primaria: 'var(--cor-primaria)',
+        secundaria: 'var(--cor-secundaria)',
+        destaque: 'var(--cor-destaque)',
+        info: 'var(--cor-info)',
+      },
+      fontFamily: {
+        titulo: 'var(--fonte-titulo)',
+        corpo: 'var(--fonte-corpo)',
+      },
+    },
+  },
+  plugins: [],
+}
+
+export default config

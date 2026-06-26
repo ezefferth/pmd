@@ -10,7 +10,7 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 | Sistema | Regra de negócio | Backend | Frontend |
 |---------|------------------|---------|----------|
 | **CUD** (Central de Usuários) | ✅ `rn-central-de-usuarios.md` v1.5.0 | ✅ **completo** (auth-api + sync RH + grupos de acesso) | ✅ admin-web · ✅ conta-web |
-| **RH** (Recursos Humanos) | ✅ `rn-recursos-humanos.md` v1.0.0 | ✅ api: schema + domínios + sync→CUD (#35/#39/#40) | ⬜ (rh-web) |
+| **RH** (Recursos Humanos) | ✅ `rn-recursos-humanos.md` v1.0.0 | ✅ api: schema + domínios + sync→CUD (#35/#39/#40) | ✅ rh-web (#61): unidades, carreiras, cargos, servidores, movimentações |
 | **SPD** (Protocolo) | ✅ `rn-protocolo.md` v2.3.1 | 🟡 schema + scaffold (#42) + abertura portal (#54) + tramitação (#59) | 🟡 portal cidadão + cadastros internos + tramitação (processos) |
 
 > Documentos transversais: `CLAUDE.md` (convenção pt-BR + integração), `git-workflow.md`,
@@ -59,9 +59,14 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 - **Módulos de domínio** (#39): unidades (árvore + ciclo), carreiras + faixas, cargos, servidores (admissão registra movimentação), movimentações.
 - **Sync RH→CUD** (#40): `POST /sincronizacao/publicar` → publica setores + ficha funcional no CUD (protegido por `x-sync-key`).
 
+### rh-web (`sistemas/rh/web`) — Next 15 + Tailwind, porta 3004
+| PR | Conteúdo |
+|----|----------|
+| #61 | scaffold (espelha admin-web) + telas: dashboard, unidades (árvore), carreiras (+faixas), cargos (filtro por tipo), servidores (lista paginada/busca + admissão), servidor/[id] (ficha + movimentações + alterar situação). Consome a api do RH via `lib/api` server-side; toasts (`FormToast`). |
+
 ### Falta no RH
-- `rh-web` (frontend, porta 3004) e autenticação (endpoints hoje abertos, MVP)
-- Sync por evento (webhook) e auditoria
+- Autenticação (endpoints hoje abertos, MVP) — proteger via CUD
+- Sync por evento (webhook) e auditoria; edição de unidades/cargos (hoje criação + situação)
 
 ---
 
@@ -125,7 +130,7 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 #1 (auth SPD via CUD — parcial).
 (#3 abertura cidadão SPD → **concluída** via #54; #6 responsável inativo → **concluída** via #59; #52 toasts SPD; #55/#56 toasts CUD; #57/#58 grupos de acesso; #18 sync, #34/#35 RH scaffold, #38/#39 RH domínios, #41/#42 SPD scaffold — concluídos.)
 
-**Próximo na fila autônoma:** (5) **rh-web** (frontend do RH, porta 3004); depois (6) documentos via Supabase Storage no SPD.
+**Próximo na fila autônoma:** (6) **documentos no SPD** via Supabase Storage (upload/anexo de peças aos processos).
 
 ---
 
