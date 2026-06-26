@@ -3,10 +3,8 @@
 Workspace raiz que agrupa três sistemas municipais interdependentes (em `sistemas/`): **CUD** (central de usuários), **SPD** (protocolo) e **RH** (recursos humanos).
 Trabalhe sempre dentro do subprojeto correto; este arquivo fornece o contexto de integração entre eles.
 
-> **Estado atual e ponto de retomada:** ver [`progresso.md`](progresso.md).
-> ⚠️ Algumas seções abaixo descrevem o estado-alvo original e podem citar detalhes legados
-> (ex.: Keycloak, autenticação própria de cidadão no SPD). As decisões vigentes estão nas RN
-> (`rn-central-de-usuarios.md`, `rn-protocolo.md`, `rn-recursos-humanos.md`) e em `progresso.md`.
+> **Estado atual e ponto de retomada:** ver [`progresso.md`](progresso.md). Detalhes de regra de negócio
+> nas RN (`rn-central-de-usuarios.md`, `rn-protocolo.md`, `rn-recursos-humanos.md`).
 
 ---
 
@@ -60,8 +58,8 @@ Casos que exigem comentário:
 // correto — explica restrição não óbvia
 async function criarUsuario(dto: CriarUsuarioDto) {
   // Supabase Auth precisa existir antes do banco — se falhar aqui, rollback total
-  const supabaseId = await this.supabase.criarUsuario(dto)
-  return this.prisma.usuario.create({ data: { ...dto, keycloakId: supabaseId } })
+  const authId = await this.supabase.criarUsuario(dto)
+  return this.prisma.usuario.create({ data: { ...dto, authId } })
 }
 
 // errado — descreve o que o código já mostra
@@ -82,50 +80,56 @@ PMD/
 └── supabase/  # infraestrutura local compartilhada (PostgreSQL + Auth + Storage)
 ```
 
-> Os subprojetos ficam sob `sistemas/`. Comandos `cd cud`/`cd spd` neste documento referem-se a
-> `sistemas/cud`/`sistemas/spd` (paths serão consolidados conforme cada app for criado).
+> Os subprojetos ficam sob `sistemas/`. Apps atuais: `sistemas/cud/{auth-api,admin-web,conta-web}` e
+> `sistemas/rh/api`. Os scripts de dev da raiz (`npm run dev:*`) já apontam para os diretórios certos.
 
-Cada subprojeto terá seu próprio `CLAUDE.md` com stack, schema, regras e comandos detalhados.
-Leia o CLAUDE.md do subprojeto antes de editar qualquer arquivo dentro dele.
+Quando um subprojeto tiver seu próprio `CLAUDE.md`, leia-o antes de editar arquivos dentro dele.
 
 ---
 
-## Os dois sistemas
+## Os três sistemas
 
-### CUD — Banco Central de Usuários (BCU)
-**Papel:** provedor de identidade (IdP) e repositório central de usuários municipais. Ponto único de verdade — todos os sistemas consultam o CUD para saber quem é o usuário e quais acessos ele tem.
+### CUD — Central de Usuários de Dourados
+**Papel:** provedor de identidade (IdP) e repositório central de **todos** os usuários municipais. Ponto único de verdade — todo sistema consulta o CUD para saber quem é o usuário e quais acessos tem.
 
-- Monorepo pnpm: `auth-api` (NestJS/Fastify, porta 3001) + `admin-web` (Next.js 15, porta 3000)
+- `auth-api` (NestJS/Fastify, :3001) + `admin-web` (Next.js, :3000, gestor) + `conta-web` (Next.js, :3006, autogestão do próprio usuário)
 - Supabase Auth (GoTrue) como engine de autenticação — email+senha, JWT HS256
-- PostgreSQL (schema `cud`, via Supabase local) + Redis 7
-- Gerencia usuários municipais, sistemas registrados, perfis de acesso e auditoria
-- Expõe `GET /acessos/verificar` para que sistemas externos checem permissões granulares
+- PostgreSQL (schema `cud`, via Supabase local) + Redis
+- **Identidade única:** externos/cidadãos se autoregistram (`tipoVinculo = EXTERNO`); servidores recebem vínculo interno + ficha funcional (sincronizada do RH)
+- Expõe `GET /acessos/verificar` para os sistemas checarem permissões granulares
+
+### RH — Recursos Humanos
+**Papel:** **dado-mestre funcional** dos servidores (estrutura organizacional, cargos/carreiras, vínculos, lotação, situação). Alimenta o CUD (ficha funcional + árvore de setores). Frequência é escopo futuro.
+
+- `api` (NestJS/Fastify, :3005) + `rh-web` (Next.js, :3004, a criar)
+- Prisma + PostgreSQL (schema `rh`)
+- **Não autentica nem concede permissões** — isso é do CUD; correlação por **CPF**/`matricula`/`rhId`
 
 ### SPD — Sistema de Protocolo Digital
 **Papel:** abertura, tramitação e acompanhamento de processos pelo cidadão e servidor.
 
-- Single app Next.js (App Router) em `spd/web/`, porta 3000
+- App Next.js (App Router) em `sistemas/spd/web/`, :3002 (a criar)
 - Prisma + PostgreSQL (schema `spd`, via Supabase local) + Supabase Storage (documentos)
 - Integração externa crítica com API Betha (tributário)
-- Dois públicos: servidores internos (`(internal)/`) e cidadãos (`(portal)/`)
-- Autenticação própria: JWT com `jose` em cookie httpOnly para servidores; CPF+senha para cidadãos
+- Dois públicos: servidores internos (`(internal)/`) e cidadãos (`(portal)/`) — **ambos autenticam via CUD** (cidadão = conta `EXTERNO` do CUD; não há mais `Citizen` próprio)
 
 ---
 
-## Arquitetura de integração (estado alvo)
+## Arquitetura de integração
 
 ```
-Cidadão → portal SPD → autenticação própria (Citizen/CPF)
+RH → publica ficha funcional + árvore de setores → CUD
 
-Servidor → SPD interno → Supabase Auth (CUD) → JWT HS256
+Cidadão/Servidor → Supabase Auth (CUD) → JWT HS256
                                      ↓
                     auth-api CUD → perfil + permissões granulares
                                      ↓
-                    SPD consulta GET /acessos/verificar?usuarioId=X&sistemaId=spd&permissao=PROCESSES:CREATE
+   SPD consulta GET /acessos/verificar?usuarioId=X&sistemaId=spd&permissao=PROCESSOS:CRIAR
 ```
 
-**Hoje:** SPD usa autenticação própria para servidores internos (User + senha, JWT gerado localmente).
-**Alvo:** servidores internos do SPD autenticam via Supabase Auth (CUD). Cidadãos continuam com autenticação própria do portal.
+**Identidade:** todos (cidadãos e servidores) autenticam via CUD (Supabase Auth). O cidadão é uma conta
+`EXTERNO` do CUD; o servidor recebe vínculo interno + ficha funcional vinda do RH.
+**Permissões:** o SPD consome o CUD via `GET /acessos/verificar` (contrato `MODULO:ACAO` em pt-BR).
 
 ---
 
@@ -138,29 +142,29 @@ Sistema no banco CUD:
   slug: "spd"
   urlBase: "http://localhost:3002"
 
-Perfis mínimos necessários no CUD para o SPD:
-  "admin-spd"       → permissões: ["*"]
-  "gestor-spd"      → permissões: ["PROCESSES:APPROVE","PROCESSES:TRANSFER","PROCESSES:CONCLUDE","USERS:READ"]
-  "analista-spd"    → permissões: ["PROCESSES:CREATE","PROCESSES:UPDATE","MOVEMENTS:CREATE","DOCUMENTS:CREATE"]
-  "servidor-spd"    → permissões: ["PROCESSES:READ","MOVEMENTS:READ","DOCUMENTS:READ"]
-  "consulta-spd"    → permissões: ["PROCESSES:READ"]
+Perfis mínimos do SPD no CUD (permissões MODULO:ACAO em pt-BR):
+  "admin-spd"       → ["*"]
+  "gestor-spd"      → ["PROCESSOS:APROVAR","PROCESSOS:TRANSFERIR","PROCESSOS:CONCLUIR","USUARIOS:LER"]
+  "analista-spd"    → ["PROCESSOS:CRIAR","PROCESSOS:ATUALIZAR","MOVIMENTACOES:CRIAR","DOCUMENTOS:CRIAR"]
+  "servidor-spd"    → ["PROCESSOS:LER","MOVIMENTACOES:LER","DOCUMENTOS:LER"]
+  "consulta-spd"    → ["PROCESSOS:LER"]
 ```
 
-### Como o SPD verificará permissão via CUD
+### Como o SPD verifica permissão via CUD
 ```http
 GET http://localhost:3001/api/v1/acessos/verificar
-  ?usuarioId={supabaseId}
-  &sistemaId={cud_sistema_id_do_spd}
-  &permissao={PermissionModule}:{PermissionAction}
+  ?usuarioId={authId}            # id do Supabase Auth (sub do JWT)
+  &sistemaId=spd
+  &permissao=MODULO:ACAO         # ex.: PROCESSOS:CRIAR
 
-Response: { temAcesso: boolean, perfil: string, permissoes: string[] }
+Resposta: { temAcesso: boolean, perfil: string, permissoes: string[] }
 ```
 
-Chave de mapeamento: `usuarios.keycloakId` no CUD = `sub` do JWT Supabase = identificador do servidor no SPD.
+Chave de mapeamento: `usuarios.authId` no CUD = `sub` do JWT Supabase = identificador do usuário no SPD.
 
-### Fluxo de autenticação no SPD (após integração)
+### Fluxo de autenticação no SPD
 ```
-1. Servidor acessa /login no SPD
+1. Usuário (cidadão ou servidor) acessa /login no SPD
 2. SPD valida credenciais contra Supabase Auth (CUD) — email+senha
 3. Supabase Auth retorna JWT HS256 (access_token)
 4. SPD armazena JWT em cookie httpOnly
@@ -173,16 +177,17 @@ Chave de mapeamento: `usuarios.keycloakId` no CUD = `sub` do JWT Supabase = iden
 
 | SPD | CUD | Supabase Auth |
 |-----|-----|---------------|
-| `User.id` | `Usuario.id` | — |
-| `User.email` | `Usuario.email` | `email` |
-| — | `Usuario.keycloakId` | `id` (sub do JWT) |
-| `User.name` | `Usuario.nome` | `user_metadata.nome` |
-| `User.cpf` | `Usuario.cpf` | `user_metadata.cpf` |
-| `User.matricula` | `Usuario.matricula` | `user_metadata.matricula` |
-| `Profile` (SPD) | `Perfil` (CUD) | — |
-| `PermissionModule:PermissionAction` | `permissoes[]` string no `Perfil` | — |
+| referência local | `Usuario.id` | — |
+| chave de correlação | `Usuario.authId` | `id` (sub do JWT) |
+| email | `Usuario.email` | `email` |
+| nome | `Usuario.nome` | `user_metadata.nome` |
+| cpf | `Usuario.cpf` | `user_metadata.cpf` |
+| matrícula | `Usuario.matricula` | `user_metadata.matricula` |
+| perfil local | `Perfil` (CUD) | — |
+| `MODULO:ACAO` | `permissoes[]` no `Perfil` | — |
 
-> O campo `keycloakId` foi mantido por compatibilidade de nome; armazena o `id` do Supabase Auth.
+> `authId` armazena o `id` do Supabase Auth (sub do JWT). O SPD **não** tem mais tabela `User`/`Citizen`
+> própria — a identidade (cidadão e servidor) é a conta única do CUD.
 
 ---
 
@@ -198,10 +203,9 @@ Chave de mapeamento: `usuarios.keycloakId` no CUD = `sub` do JWT Supabase = iden
 - [ ] Criar servidores municipais no CUD via `POST /usuarios` (sincronizar base inicial do SPD)
 
 ### Fase 2 — Autenticação via CUD no SPD
-- [ ] Substituir `src/actions/auth.ts` (login de User) pelo fluxo com Supabase Auth do CUD
-- [ ] Manter `src/lib/session.ts` para sessão de cidadão (portal) — não alterar
-- [ ] Adaptar `proxy.ts` para validar JWT Supabase para rotas `(internal)/`
-- [ ] Manter autenticação por CPF/senha para cidadãos em `(portal)/`
+- [ ] Login de servidores e **de cidadãos** via Supabase Auth (CUD) — identidade única
+- [ ] Validar JWT Supabase nas rotas `(internal)/` e `(portal)/`
+- [ ] Descontinuar `Citizen`/`User` próprios; cidadão = conta `EXTERNO` do CUD (issue #1)
 
 ### Fase 3 — Verificação de permissões via CUD
 - [ ] Criar `src/lib/cud.ts` no SPD — client HTTP para `GET /acessos/verificar`
@@ -224,41 +228,26 @@ Cada sistema usa um **schema isolado** dentro do mesmo banco `postgres`.
 PostgreSQL :54322
 ├── schema: public     ← Supabase interno
 ├── schema: cud        ← CUD Prisma
-└── schema: spd        ← SPD Prisma
+├── schema: spd        ← SPD Prisma
+└── schema: rh         ← RH Prisma
 ```
 
 ### Comandos de infra (executar na raiz PMD/)
 
 ```bash
-# Subir infra completa
-supabase start               # PostgreSQL :54322 · Auth :54321 · Studio :54323
-
-# Ver chaves do Supabase (preencher nos .env dos apps)
-supabase status
-
-# Redis (na pasta cud/)
-pnpm infra:up                # sobe Redis :6379
-pnpm infra:down              # para Redis
-
-# Parar Supabase
-supabase stop
+npm run infra:up             # supabase start + Redis (docker compose)
+npm run db:status            # chaves do Supabase (preencher nos .env)
+npm run db:reset             # recria o banco e aplica migrations (schemas cud/spd/rh)
+npm run infra:down           # derruba Redis + Supabase
 ```
 
-### Migrations de schema (Supabase)
+### Migrations de tabelas (Prisma — por app)
 
 ```bash
-# Aplicar migrations de infra (cria schemas cud/spd)
-supabase db reset            # dev — recria tudo
-```
-
-### Migrations de tabelas (Prisma — por projeto)
-
-```bash
-# CUD (dentro de cud/)
-pnpm db:migrate              # cria tabelas no schema cud
-
-# SPD (dentro de spd/web/)
-npx prisma migrate dev       # cria tabelas no schema spd
+# CUD
+cd sistemas/cud/auth-api && pnpm prisma:migrate --name init   # tabelas no schema cud
+# RH
+cd sistemas/rh/api && pnpm prisma:migrate --name init         # tabelas no schema rh
 ```
 
 ---
@@ -271,26 +260,30 @@ npx prisma migrate dev       # cria tabelas no schema spd
 - Logs de auditoria do CUD
 
 ```bash
-# dentro de cud/
-pnpm infra:up       # Redis (PostgreSQL/Auth já estão no Supabase)
-pnpm dev:api        # auth-api na porta 3001
-pnpm dev:web        # admin-web na porta 3000
+# da raiz PMD/
+npm run infra:up         # Supabase + Redis
+npm run dev:cud-api      # auth-api :3001
+npm run dev:cud-web      # admin-web :3000
+# conta-web (autogestão): pnpm -C sistemas/cud/conta-web dev   # :3006
+```
+
+### Quando alterar RH
+- Estrutura organizacional, cargos/carreiras, servidores, movimentações funcionais
+- Sincronização RH→CUD (ficha funcional + setores)
+
+```bash
+npm run dev:rh-api       # api :3005
 ```
 
 ### Quando alterar SPD
-- Tramitação de processos, assuntos, organograma, documentos
-- Portal do cidadão
-- Integração Betha
+- Tramitação de processos, assuntos, organograma, documentos · portal do cidadão · integração Betha
 
 ```bash
-# PostgreSQL já está no Supabase (supabase start na raiz)
-
-# dentro de spd/web/
-npm run dev         # porta 3000 (ou 3002 quando rodando junto com CUD)
+npm run dev:spd          # web :3002 (a criar)
 ```
 
-### Quando alterar ambos
-Tarefas de integração (Fase 1 a 4 acima). Nesse caso:
+### Quando alterar mais de um
+Tarefas de integração. Nesse caso:
 1. Identifique qual contrato muda (endpoint, payload, mapeamento de entidade)
 2. Ajuste o CUD primeiro (produtor do contrato)
 3. Ajuste o SPD em seguida (consumidor do contrato)
@@ -320,14 +313,19 @@ Tarefas de integração (Fase 1 a 4 acima). Nesse caso:
 
 ## Decisões arquiteturais (nível PMD)
 
-**Por que o SPD não abandona a autenticação própria para cidadãos?**
-Cidadãos não são usuários municipais. O portal usa autenticação por CPF com conta `Citizen` própria. Somente os servidores internos migram para o CUD.
+**Por que identidade única no CUD (inclusive cidadãos)?**
+Decidiu-se unificar: todos — cidadãos e servidores — têm conta no CUD. O cidadão se autoregistra como
+`tipoVinculo = EXTERNO` e só acessa o que perfis com `permiteExterno = true` liberam (protocolo + consultas).
+Servidores recebem vínculo interno + ficha funcional (do RH). Um só IdP reduz duplicação e simplifica o SSO.
+Revê a decisão anterior de manter `Citizen` próprio no SPD (issue #1).
 
-**Por que autenticação separada para cidadãos e servidores?**
-Escala diferente, dados diferentes (CPF ≠ matrícula) e fluxos diferentes (portal público vs. sistema interno). Manter separado reduz risco e superfície de ataque.
+**Por que `permissoes[]` no CUD são strings `MODULO:ACAO` em pt-BR?**
+É o contrato de permissão granular consumido pelos sistemas, definido em pt-BR desde a origem — sem camada
+de tradução entre CUD e consumidores.
 
-**Por que `permissoes[]` no CUD são strings `MODULE:ACTION` compatíveis com o SPD?**
-O formato `PermissionModule:PermissionAction` já usado pelo SPD é o contrato de permissão granular também no CUD. Isso elimina camada de tradução na Fase 3.
+**Por que o RH é o dado-mestre funcional, separado do CUD?**
+O CUD é IdP agnóstico de domínio (identidade + acessos). Dados funcionais (cargos, carreiras, lotação,
+situação) pertencem ao RH, que os publica para o CUD. Mantém o IdP enxuto e a folha/funcional no sistema certo.
 
 **Por que manter o Betha separado do CUD?**
 Betha é integração tributária específica do SPD. O CUD é auth agnóstico de domínio. Misturar acoplaria o IdP a regras de negócio do protocolo.
