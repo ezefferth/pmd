@@ -1,0 +1,5 @@
+# Permite os scripts de build do Prisma no install (gera o Prisma Client)
+onlyBuiltDependencies:
+  - '@prisma/client'
+  - '@prisma/engines'
+  - prisma

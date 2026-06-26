@@ -1,0 +1,232 @@
+// RH — Recursos Humanos (Dourados/MS)
+// Schema Prisma da api. Base: rn-recursos-humanos.md.
+// Schema PostgreSQL isolado: `rh` (DATABASE_URL ?schema=rh).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ──────────────────────────────────────────────────────
+
+enum TipoUnidade {
+  SECRETARIA
+  DEPARTAMENTO
+  COORDENADORIA
+  SETOR
+}
+
+enum TipoCargo {
+  EFETIVO
+  COMISSAO
+  FUNCAO_GRATIFICADA
+  ESTAGIO
+  TEMPORARIO
+  ELETIVO
+}
+
+enum TipoVinculoFuncional {
+  EFETIVO
+  COMISSIONADO
+  ESTAGIARIO
+  ELETIVO
+  TEMPORARIO
+}
+
+enum RegimeJuridico {
+  ESTATUTARIO
+  CELETISTA
+  ESPECIAL
+}
+
+enum SituacaoFuncional {
+  ATIVO
+  FERIAS
+  AFASTADO
+  LICENCA
+  CEDIDO
+  VACANCIA
+  EXONERADO
+  APOSENTADO
+}
+
+enum TipoMovimentacaoFuncional {
+  ADMISSAO
+  POSSE
+  NOMEACAO
+  DESIGNACAO_CONFIANCA
+  DISPENSA_CONFIANCA
+  REMOCAO
+  PROGRESSAO
+  PROMOCAO
+  LICENCA
+  AFASTAMENTO
+  CESSAO
+  EXONERACAO
+  APOSENTADORIA
+  FALECIMENTO
+}
+
+enum AcaoAuditoria {
+  CRIAR
+  ATUALIZAR
+  EXCLUIR
+  SINCRONIZAR_CUD
+}
+
+// ── Estrutura organizacional (seção 2) ─────────────────────────
+
+/// Árvore organizacional oficial — fonte canônica dos setores (RN-RH-003/004)
+model UnidadeOrganizacional {
+  id       String      @id @default(uuid())
+  nome     String
+  sigla    String?
+  tipo     TipoUnidade
+  paiId    String?
+  ativo    Boolean     @default(true)
+  criadoEm DateTime    @default(now())
+
+  pai    UnidadeOrganizacional?  @relation("Hierarquia", fields: [paiId], references: [id])
+  filhos UnidadeOrganizacional[] @relation("Hierarquia")
+
+  servidoresLotados   Servidor[]            @relation("Lotacao")
+  designacoes         DesignacaoConfianca[]
+  movimentacoesOrigem  MovimentacaoFuncional[] @relation("MovOrigem")
+  movimentacoesDestino MovimentacaoFuncional[] @relation("MovDestino")
+
+  @@index([paiId])
+}
+
+// ── Cargos e carreiras (seção 3) ───────────────────────────────
+
+model Carreira {
+  id           String  @id @default(uuid())
+  nome         String
+  descricao    String?
+  leiReferencia String?
+  ativo        Boolean @default(true)
+
+  cargos Cargo[]
+  faixas FaixaSalarial[]
+}
+
+model Cargo {
+  id                 String    @id @default(uuid())
+  nome               String
+  tipo               TipoCargo
+  carreiraId         String?
+  simbolo            String? // CC-1, DAS-2, FG-1...
+  escolaridadeExigida String?
+  cargaHorariaSemanal Int      @default(40)
+  quantidadeVagas    Int?
+  leiCriacao         String?
+  ativo              Boolean   @default(true)
+
+  carreira    Carreira?             @relation(fields: [carreiraId], references: [id])
+  servidores  Servidor[]
+  designacoes DesignacaoConfianca[]
+  movimentacoes MovimentacaoFuncional[]
+
+  @@index([carreiraId])
+}
+
+/// Matriz do plano de cargos: classe × referência → vencimento (RN-RH-005)
+model FaixaSalarial {
+  id            String  @id @default(uuid())
+  carreiraId    String
+  classe        String
+  referencia    String
+  vencimentoBase Decimal
+
+  carreira Carreira @relation(fields: [carreiraId], references: [id], onDelete: Cascade)
+
+  @@unique([carreiraId, classe, referencia])
+}
+
+// ── Servidores e vínculos (seção 4) ────────────────────────────
+
+model Servidor {
+  id             String               @id @default(uuid())
+  cpf            String               @unique
+  nome           String
+  matricula      String?              @unique // null para estagiários (RN-RH-009)
+  tipoVinculo    TipoVinculoFuncional
+  regimeJuridico RegimeJuridico
+  cargoId        String
+  unidadeLotacaoId String
+  classe         String?
+  referencia     String?
+  situacao       SituacaoFuncional    @default(ATIVO)
+  dataAdmissao   DateTime
+  dataExoneracao DateTime?
+  cargaHoraria   Int?
+  ativo          Boolean              @default(true)
+  criadoEm       DateTime             @default(now())
+  atualizadoEm   DateTime             @updatedAt
+
+  cargo          Cargo                 @relation(fields: [cargoId], references: [id])
+  unidadeLotacao UnidadeOrganizacional @relation("Lotacao", fields: [unidadeLotacaoId], references: [id])
+  designacoes    DesignacaoConfianca[]
+  movimentacoes  MovimentacaoFuncional[]
+
+  @@index([cargoId])
+  @@index([unidadeLotacaoId])
+}
+
+/// Cargo de confiança acumulável por servidor efetivo (RN-RH-012/013)
+model DesignacaoConfianca {
+  id          String    @id @default(uuid())
+  servidorId  String
+  cargoId     String // Cargo tipo COMISSAO ou FUNCAO_GRATIFICADA
+  unidadeId   String
+  atoPortaria String?
+  dataInicio  DateTime
+  dataFim     DateTime?
+  ativo       Boolean   @default(true)
+
+  servidor Servidor              @relation(fields: [servidorId], references: [id], onDelete: Cascade)
+  cargo    Cargo                 @relation(fields: [cargoId], references: [id])
+  unidade  UnidadeOrganizacional @relation(fields: [unidadeId], references: [id])
+
+  @@index([servidorId])
+}
+
+// ── Movimentações funcionais (seção 6) ─────────────────────────
+
+model MovimentacaoFuncional {
+  id              String                    @id @default(uuid())
+  servidorId      String
+  tipo            TipoMovimentacaoFuncional
+  data            DateTime                  @default(now())
+  atoPortaria     String?
+  unidadeOrigemId  String?
+  unidadeDestinoId String?
+  cargoId         String?
+  observacao      String?
+
+  servidor       Servidor               @relation(fields: [servidorId], references: [id], onDelete: Cascade)
+  unidadeOrigem  UnidadeOrganizacional? @relation("MovOrigem", fields: [unidadeOrigemId], references: [id])
+  unidadeDestino UnidadeOrganizacional? @relation("MovDestino", fields: [unidadeDestinoId], references: [id])
+  cargo          Cargo?                 @relation(fields: [cargoId], references: [id])
+
+  @@index([servidorId])
+}
+
+// ── Auditoria (seção 9) ────────────────────────────────────────
+
+model LogAuditoria {
+  id            String        @id @default(uuid())
+  atorId        String?
+  acao          AcaoAuditoria
+  entidade      String
+  entidadeId    String
+  valorAnterior Json?
+  valorNovo     Json?
+  criadoEm      DateTime      @default(now())
+
+  @@index([entidade, entidadeId])
+}
