@@ -1,0 +1,414 @@
+// SPD — Sistema de Protocolo Digital (Dourados/MS)
+// Schema Prisma. Base: rn-protocolo.md. Schema PostgreSQL isolado: `spd` (DATABASE_URL ?schema=spd).
+// Núcleo do protocolo. Módulos avançados (assinatura, pendências, sigilo/credencial, notificações,
+// vínculos de processo) entram em follow-ups.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ──────────────────────────────────────────────────────
+
+enum TipoAtribuicao {
+  RESPONSAVEL
+  ANALISTA
+  AUTOMATICO
+  TODO_SETOR
+  USUARIOS_ESPECIFICOS
+}
+
+enum EstrategiaResponsavelInativo {
+  USUARIO_SECUNDARIO
+  ABERTO_SETOR
+  RETORNAR_ORIGEM
+}
+
+enum TipoPessoa {
+  PF
+  PJ
+}
+
+enum TipoContagemPrazo {
+  DIAS_UTEIS
+  DIAS_CORRIDOS
+}
+
+enum TipoCampo {
+  TEXTO
+  TEXTO_LONGO
+  NUMERO
+  DATA
+  SELECAO
+}
+
+enum NivelSigilo {
+  PUBLICO
+  RESTRITO
+  SIGILOSO
+  SECRETO
+}
+
+enum StatusProcesso {
+  ABERTO
+  RECEBIDO
+  EM_ANALISE
+  EM_ANDAMENTO
+  AGUARDANDO_DOCUMENTOS
+  AGUARDANDO_PAGAMENTO
+  TRANSFERIDO
+  CONCLUIDO
+  ARQUIVADO
+  CANCELADO
+}
+
+enum TipoMovimentacao {
+  CRIADO
+  RECEBIDO
+  ANALISE
+  ANDAMENTO
+  TRANSFERENCIA
+  DEVOLUCAO
+  PARECER
+  COMENTARIO
+  JUNTADA_DOCUMENTO
+  REGISTRO_PAGAMENTO
+  CONCLUSAO
+  ARQUIVAMENTO
+  REABERTURA
+  CANCELAMENTO
+  APENSAMENTO
+  DESAPENSAMENTO
+  ANEXACAO
+  ASSINATURA
+  DESENTRANHAMENTO
+  SOLICITACAO_PENDENCIA
+  CUMPRIMENTO_PENDENCIA
+  PRORROGACAO_PRAZO
+}
+
+enum StatusGuia {
+  PENDENTE
+  VENCIDA
+  PAGA
+}
+
+// ── Identidade local (espelho do CUD) ──────────────────────────
+
+/// Servidor — espelho da conta do CUD (correlação por authId). Identidade é do CUD.
+model Usuario {
+  id        String   @id @default(uuid())
+  authId    String   @unique
+  nome      String
+  email     String   @unique
+  cpf       String?
+  matricula String?
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now())
+
+  responsaveis        ResponsavelOrganograma[]
+  lotacoes            UsuarioOrganograma[]
+  processosAtribuidos Processo[]
+  movimentacoes       MovimentacaoProcesso[]
+}
+
+// ── Organograma (seção 1) ──────────────────────────────────────
+
+model NivelOrganograma {
+  id    String @id @default(uuid())
+  nivel Int    @unique
+  nome  String
+
+  organogramas Organograma[]
+}
+
+model Organograma {
+  id      String  @id @default(uuid())
+  codigo  String  @unique
+  sigla   String?
+  nivelId String
+  paiId   String?
+  ativo   Boolean @default(true)
+
+  nivel  NivelOrganograma @relation(fields: [nivelId], references: [id])
+  pai    Organograma?     @relation("Hierarquia", fields: [paiId], references: [id])
+  filhos Organograma[]    @relation("Hierarquia")
+
+  responsaveis    ResponsavelOrganograma[]
+  usuarios        UsuarioOrganograma[]
+  configuracao    ConfiguracaoAtribuicaoOrganograma?
+  processosAtuais Processo[]
+
+  @@index([paiId])
+}
+
+model ResponsavelOrganograma {
+  id                String  @id @default(uuid())
+  organogramaId     String
+  usuarioId         String
+  ehTitular         Boolean @default(false)
+  podeVerSubsetores Boolean @default(false)
+  substitutoId      String? // suplente pré-declarado (RN-087)
+
+  organograma Organograma @relation(fields: [organogramaId], references: [id], onDelete: Cascade)
+  usuario     Usuario     @relation(fields: [usuarioId], references: [id])
+
+  @@unique([organogramaId, usuarioId])
+}
+
+model UsuarioOrganograma {
+  id            String  @id @default(uuid())
+  usuarioId     String
+  organogramaId String
+  ehPrimario    Boolean @default(false)
+
+  usuario     Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  organograma Organograma @relation(fields: [organogramaId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, organogramaId])
+}
+
+model ConfiguracaoAtribuicaoOrganograma {
+  id                           String                       @id @default(uuid())
+  organogramaId                String                       @unique
+  tipoAtribuicao               TipoAtribuicao               @default(RESPONSAVEL)
+  estrategiaResponsavelInativo EstrategiaResponsavelInativo @default(RETORNAR_ORIGEM)
+
+  organograma Organograma @relation(fields: [organogramaId], references: [id], onDelete: Cascade)
+}
+
+// ── Cadastro (seção 3) ─────────────────────────────────────────
+
+model ParteInteressada {
+  id               String     @id @default(uuid())
+  tipoPessoa       TipoPessoa
+  cpfCnpj          String     @unique
+  nome             String
+  email            String?
+  bethaId          String?
+  bethaEconomicoId String?
+  criadoEm         DateTime   @default(now())
+
+  processosRequeridos Processo[]
+  interessados        ProcessoInteressado[]
+}
+
+// ── Assuntos (seção 4) ─────────────────────────────────────────
+
+model TipoDocumento {
+  id                 String   @id @default(uuid())
+  nome               String
+  formatosPermitidos String[]
+  tamanhoMaximoMb    Int      @default(10)
+
+  assuntoDocumentos AssuntoDocumento[]
+  documentos        Documento[]
+}
+
+model TipoGuia {
+  id          String   @id @default(uuid())
+  nome        String
+  valorPadrao Decimal?
+
+  assuntoGuias AssuntoGuiaPagamento[]
+  guias        GuiaPagamento[]
+}
+
+model Assunto {
+  id                            String            @id @default(uuid())
+  codigo                        Int
+  secretariaId                  String // id do Organograma (secretaria)
+  nome                          String
+  disponivelParaNovasAberturas  Boolean           @default(true)
+  permiteAberturaExterna        Boolean           @default(true)
+  permiteAberturaInterna        Boolean           @default(true)
+  permiteAnonimo                Boolean           @default(false)
+  permiteSigiloso               Boolean           @default(false)
+  tramitarComPendenciaPagamento Boolean           @default(false)
+  exigeObservacao               Boolean           @default(false)
+  exigeComentarios              Boolean           @default(false)
+  permiteTramitacao             Boolean           @default(true)
+  tipoAtribuicao                TipoAtribuicao    @default(RESPONSAVEL)
+  prazoLegalDias                Int?
+  tipoContagemPrazo             TipoContagemPrazo @default(DIAS_UTEIS)
+  organogramaDestinoId          String?
+  ativo                         Boolean           @default(true)
+
+  documentos       AssuntoDocumento[]
+  guias            AssuntoGuiaPagamento[]
+  camposAdicionais CampoAdicionalAssunto[]
+  processos        Processo[]
+
+  @@unique([codigo, secretariaId])
+}
+
+model AssuntoDocumento {
+  id              String  @id @default(uuid())
+  assuntoId       String
+  tipoDocumentoId String
+  obrigatorio     Boolean @default(false)
+
+  assunto       Assunto       @relation(fields: [assuntoId], references: [id], onDelete: Cascade)
+  tipoDocumento TipoDocumento @relation(fields: [tipoDocumentoId], references: [id])
+}
+
+model AssuntoGuiaPagamento {
+  id          String   @id @default(uuid())
+  assuntoId   String
+  tipoGuiaId  String
+  valor       Decimal?
+  obrigatorio Boolean  @default(false)
+
+  assunto  Assunto  @relation(fields: [assuntoId], references: [id], onDelete: Cascade)
+  tipoGuia TipoGuia @relation(fields: [tipoGuiaId], references: [id])
+}
+
+model CampoAdicionalAssunto {
+  id          String    @id @default(uuid())
+  assuntoId   String
+  rotulo      String
+  tipo        TipoCampo
+  placeholder String?
+  obrigatorio Boolean   @default(false)
+  ordem       Int       @default(0)
+
+  assunto Assunto                  @relation(fields: [assuntoId], references: [id], onDelete: Cascade)
+  valores ProcessoCampoAdicional[]
+}
+
+// ── Processo (seção 5) ─────────────────────────────────────────
+
+model SequenciaProtocolo {
+  ano             Int @id
+  ultimaSequencia Int @default(0)
+}
+
+model Processo {
+  id                   String         @id @default(uuid())
+  numeroProtocolo      String         @unique
+  numeroSequencial     Int
+  ano                  Int
+  assuntoId            String
+  requerenteId         String?
+  motivo               String?
+  status               StatusProcesso @default(ABERTO)
+  organogramaAtualId   String
+  organogramaOrigemId  String?
+  organogramaDestinoId String?
+  usuarioAtribuidoId   String?
+  estaBloqueado        Boolean        @default(false)
+  ehAnonimo            Boolean        @default(false)
+  nivelSigilo          NivelSigilo    @default(PUBLICO)
+  bethaLancamentoId    String?
+  dataLimite           DateTime?
+  estaAtrasado         Boolean        @default(false)
+  criadoEm             DateTime       @default(now())
+  atualizadoEm         DateTime       @updatedAt
+
+  assunto          Assunto           @relation(fields: [assuntoId], references: [id])
+  requerente       ParteInteressada? @relation(fields: [requerenteId], references: [id])
+  organogramaAtual Organograma       @relation(fields: [organogramaAtualId], references: [id])
+  usuarioAtribuido Usuario?          @relation(fields: [usuarioAtribuidoId], references: [id])
+
+  movimentacoes    MovimentacaoProcesso[]
+  interessados     ProcessoInteressado[]
+  camposAdicionais ProcessoCampoAdicional[]
+  documentos       Documento[]
+  guias            GuiaPagamento[]
+
+  @@index([assuntoId])
+  @@index([organogramaAtualId])
+}
+
+model MovimentacaoProcesso {
+  id                     String           @id @default(uuid())
+  processoId             String
+  tipo                   TipoMovimentacao
+  usuarioId              String?
+  observacao             String?
+  comentarios            String?
+  textoParecer           String?
+  ehConclusivo           Boolean          @default(false)
+  ehPublico              Boolean          @default(true)
+  autorizadoPorUsuarioId String?
+  observacaoAutorizacao  String?
+  organogramaOrigemId    String?
+  organogramaDestinoId   String?
+  criadoEm               DateTime         @default(now())
+
+  processo Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+  usuario  Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([processoId])
+}
+
+model ProcessoInteressado {
+  id                 String  @id @default(uuid())
+  processoId         String
+  parteInteressadaId String
+  papel              String?
+
+  processo         Processo         @relation(fields: [processoId], references: [id], onDelete: Cascade)
+  parteInteressada ParteInteressada @relation(fields: [parteInteressadaId], references: [id])
+
+  @@unique([processoId, parteInteressadaId])
+}
+
+model ProcessoCampoAdicional {
+  id               String  @id @default(uuid())
+  processoId       String
+  campoAdicionalId String
+  valor            String?
+
+  processo       Processo              @relation(fields: [processoId], references: [id], onDelete: Cascade)
+  campoAdicional CampoAdicionalAssunto @relation(fields: [campoAdicionalId], references: [id])
+
+  @@unique([processoId, campoAdicionalId])
+}
+
+model Documento {
+  id                 String   @id @default(uuid())
+  processoId         String
+  tipoDocumentoId    String?
+  nome               String
+  urlArquivo         String
+  numeroOrdem        Int?
+  numeroFolhaInicial Int?
+  numeroFolhaFinal   Int?
+  criadoEm           DateTime @default(now())
+
+  processo      Processo       @relation(fields: [processoId], references: [id], onDelete: Cascade)
+  tipoDocumento TipoDocumento? @relation(fields: [tipoDocumentoId], references: [id])
+
+  @@index([processoId])
+}
+
+model GuiaPagamento {
+  id                String     @id @default(uuid())
+  processoId        String
+  tipoGuiaId        String
+  valor             Decimal
+  status            StatusGuia @default(PENDENTE)
+  dataVencimento    DateTime?
+  bethaLancamentoId String?
+  bethaCodigoGuia   String?
+  criadoEm          DateTime   @default(now())
+
+  processo Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+  tipoGuia TipoGuia @relation(fields: [tipoGuiaId], references: [id])
+
+  @@index([processoId])
+}
+
+// ── Prazos (seção 14) ──────────────────────────────────────────
+
+model FeriadoMunicipal {
+  id           String   @id @default(uuid())
+  data         DateTime
+  descricao    String
+  ehRecorrente Boolean  @default(false)
+}
