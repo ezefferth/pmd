@@ -98,6 +98,12 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 - **Matrícula** só `EFETIVO`/`COMISSIONADO`; estagiário/externo sem matrícula (RN-CUD-061).
 - **Permissões** `MODULO:ACAO` em **pt-BR**.
 
+## Banco (dev) — status
+- Infra Supabase **de pé** (containers rodando); **GoTrue/auth está parado** — rodar `supabase start` para subir o auth antes de testar login.
+- **RH**: migration `init` **aplicada** (tabelas criadas no schema `rh`).
+- **CUD** e **SPD**: os schemas `cud`/`spd` ainda têm **tabelas legadas** do projeto antigo (keycloak/`users`). As migrations `init` foram **geradas** (`prisma/migrations/*_init`), mas **não aplicadas** — aplicar exige `prisma migrate reset` (ação destrutiva que o Prisma bloqueia para IA). **Ação do usuário:** rodar `pnpm prisma migrate reset` em `sistemas/cud/auth-api` e `sistemas/spd/web` (consentindo), depois `pnpm prisma migrate deploy`. Não resetei sozinho (guardrail).
+- `.env` de cada app criados localmente a partir do `.env.example` (não versionados).
+
 ## Fora de escopo (por ora)
 - **Betha** (integração tributária) e **guias de pagamento** — removidos do schema/RN do SPD (#47). Retomar depois.
 
