@@ -1,6 +1,6 @@
 # 📋 Regras de Negócio — Central de Usuários de Dourados (CUD)
 **Prefeitura Municipal de Dourados/MS**
-Versão: 1.4.0 | Stack: **monorepo** — `auth-api` (NestJS · Fastify) + `admin-web` (Next.js App Router) · Prisma ORM · PostgreSQL (Supabase Self-Hosted) · Redis · Supabase Auth (GoTrue)
+Versão: 1.5.0 | Stack: **monorepo** — `auth-api` (NestJS · Fastify) + `admin-web` (Next.js App Router) · Prisma ORM · PostgreSQL (Supabase Self-Hosted) · Redis · Supabase Auth (GoTrue)
 
 > **Papel:** o CUD é o **provedor de identidade (IdP)** e o **repositório central de usuários municipais**.
 > É o ponto único de verdade: todo sistema do município (a começar pelo SPD) consulta o CUD para saber
@@ -96,6 +96,16 @@ Versão: 1.4.0 | Stack: **monorepo** — `auth-api` (NestJS · Fastify) + `admin
 - **RN-CUD-018:** A revogação é lógica (`ativo = false`), preservando histórico. Acesso com `dataExpiracao` no passado é tratado como inativo automaticamente.
 
 - **RN-CUD-019:** O `perfilId` de um acesso deve pertencer ao **mesmo `sistemaId`** do acesso. O sistema impede vincular um perfil de outro sistema.
+
+### 4.1 Grupos de acesso (níveis de acesso)
+
+Um **grupo de acesso** (`GrupoAcesso`) é um pacote nomeado de perfis — de um ou mais sistemas — que o admin global aplica a um usuário de uma só vez, em vez de conceder cada perfil individualmente. Serve para padronizar "níveis de acesso" recorrentes (ex.: *Atendente de Protocolo* = `servidor-spd` + `consulta-cud`).
+
+- **RN-CUD-019a:** Um grupo agrupa perfis via join (`GrupoAcessoPerfil`). Pode conter **no máximo um perfil por sistema** (coerente com RN-CUD-016) — o cadastro rejeita dois perfis do mesmo sistema no grupo.
+
+- **RN-CUD-019b:** **Aplicar** um grupo a um usuário concede um `Acesso` por perfil do grupo, reutilizando a concessão padrão (upsert por `(usuarioId, sistemaId)`, registro de `concedidoPorId`, invalidação de cache e auditoria `CONCEDER_ACESSO`). Se já houver acesso naquele sistema, o `perfilId` é atualizado.
+
+- **RN-CUD-019c:** Grupo é **modelo de provisionamento**, não vínculo permanente: excluir ou alterar um grupo **não** revoga acessos já concedidos por aplicações anteriores (revogação é ação à parte sobre o `Acesso`). Grupo `ativo = false` não pode ser aplicado.
 
 ---
 

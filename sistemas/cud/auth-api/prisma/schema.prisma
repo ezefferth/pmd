@@ -134,6 +134,7 @@ model Perfil {
 
   sistema Sistema  @relation(fields: [sistemaId], references: [id], onDelete: Cascade)
   acessos Acesso[]
+  grupos  GrupoAcessoPerfil[]
 
   @@unique([sistemaId, slug])
 }
@@ -244,4 +245,37 @@ model LogAuditoria {
 
   @@index([atorId])
   @@index([entidade, entidadeId])
+}
+
+// ──────────────────────────────────────────────────────────────
+// Grupos de acesso — pacote nomeado de perfis (níveis de acesso)
+// ──────────────────────────────────────────────────────────────
+
+/// Grupo de acesso: agrupa perfis de um ou mais sistemas e é aplicado a um
+/// usuário de uma vez, expandindo em Acesso (usuário × sistema × perfil).
+/// No máximo um perfil por sistema dentro do grupo (validado no serviço, RN-CUD-016).
+model GrupoAcesso {
+  id        String  @id @default(uuid())
+  nome      String
+  slug      String  @unique
+  descricao String?
+  ativo     Boolean @default(true)
+
+  perfis GrupoAcessoPerfil[]
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+}
+
+/// Perfil que compõe um grupo de acesso (join explícito).
+model GrupoAcessoPerfil {
+  id       String @id @default(uuid())
+  grupoId  String
+  perfilId String
+
+  grupo  GrupoAcesso @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+  perfil Perfil      @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+
+  @@unique([grupoId, perfilId])
+  @@index([perfilId])
 }

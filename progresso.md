@@ -9,7 +9,7 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 
 | Sistema | Regra de negócio | Backend | Frontend |
 |---------|------------------|---------|----------|
-| **CUD** (Central de Usuários) | ✅ `rn-central-de-usuarios.md` v1.4.0 | ✅ **completo** (auth-api + sync RH) | ✅ admin-web · ✅ conta-web |
+| **CUD** (Central de Usuários) | ✅ `rn-central-de-usuarios.md` v1.5.0 | ✅ **completo** (auth-api + sync RH + grupos de acesso) | ✅ admin-web · ✅ conta-web |
 | **RH** (Recursos Humanos) | ✅ `rn-recursos-humanos.md` v1.0.0 | ✅ api: schema + domínios + sync→CUD (#35/#39/#40) | ⬜ (rh-web) |
 | **SPD** (Protocolo) | ✅ `rn-protocolo.md` v2.3.1 | 🟡 schema + scaffold (#42) + abertura portal (#54) | 🟡 portal cidadão (abrir/meus-processos) + cadastros internos |
 
@@ -32,12 +32,14 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 | administração por setor | #27 | Setor (árvore), AdministradorSetor, `resolverEscopo`, lotação, `meu-escopo` |
 | auditoria global | #29 | `GET /auditoria` (filtros/paginado), `@Contexto` (ator/IP/UA), instrumentação (RN-CUD-058) |
 | perfil próprio | #33 | `GET/PATCH /perfil`, `POST /perfil/senha`, `POST /perfil/email` |
+| grupos de acesso | #57 | `GrupoAcesso`/`GrupoAcessoPerfil` + CRUD `/grupos-acesso` + `POST /:id/aplicar` (concede 1 acesso por perfil, reusa `AcessosService`); RN-CUD-019a/b/c |
 
 ### admin-web (`sistemas/cud/admin-web`) — Next 15 + Tailwind, porta 3000
 | PR | Conteúdo |
 |----|----------|
 | #31 | scaffold + login (cookie httpOnly) + middleware + dashboard + lista de usuários; marca aplicada |
 | #32 | telas: sistemas, perfis, acessos, auditoria, novo usuário, detalhe (mini-perfil: dados/acessos/status/vínculo), configurações |
+| #57 | tela **Grupos de acesso**: lista + criar (perfis agrupados por sistema via checkbox) + aplicar a usuário + excluir (com toasts) |
 
 ### conta-web (`sistemas/cud/conta-web`) — Next 15, porta 3006
 | PR | Conteúdo |
@@ -106,7 +108,8 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 ## Banco (dev) — status
 - Infra Supabase **de pé** (containers rodando); **GoTrue/auth está parado** — rodar `supabase start` para subir o auth antes de testar login.
 - **RH**: migration `init` **aplicada** (tabelas criadas no schema `rh`).
-- **CUD** e **SPD**: os schemas `cud`/`spd` ainda têm **tabelas legadas** do projeto antigo (keycloak/`users`). As migrations `init` foram **geradas** (`prisma/migrations/*_init`), mas **não aplicadas** — aplicar exige `prisma migrate reset` (ação destrutiva que o Prisma bloqueia para IA). **Ação do usuário:** rodar `pnpm prisma migrate reset` em `sistemas/cud/auth-api` e `sistemas/spd/web` (consentindo), depois `pnpm prisma migrate deploy`. Não resetei sozinho (guardrail).
+- **CUD** e **SPD**: os schemas `cud`/`spd` ainda têm **tabelas legadas** do projeto antigo (keycloak/`users`). As migrations foram **geradas** (`prisma/migrations/*`), mas **não aplicadas** — aplicar exige `prisma migrate reset` (ação destrutiva que o Prisma bloqueia para IA). **Ação do usuário:** rodar `pnpm prisma migrate reset` em `sistemas/cud/auth-api` e `sistemas/spd/web` (consentindo), depois `pnpm prisma migrate deploy`. Não resetei sozinho (guardrail).
+  - CUD: migrations `20260626030000_init` + `20260626120000_grupos_acesso` (incremental, valida contra o DDL do Prisma).
 - `.env` de cada app criados localmente a partir do `.env.example` (não versionados).
 
 ## Fora de escopo (por ora)
@@ -122,7 +125,7 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 #1 (auth SPD via CUD — parcial) · #6 (responsável inativo no SPD).
 (#3 abertura cidadão SPD → **concluída** via #54; #52 toasts SPD; #55/#56 toasts CUD; #18 sync, #34/#35 RH scaffold, #38/#39 RH domínios, #41/#42 SPD scaffold — concluídos.)
 
-**Próximo na fila autônoma:** (3) CUD **grupos de acesso** (`GrupoAcesso`: schema + módulo auth-api + UI admin-web) e aplicar verificação de permissão (`acessos/verificar`) nas ações sensíveis.
+**Próximo na fila autônoma:** (4) SPD **tramitação** (movimentar/transferir/concluir) e tratamento de **responsável inativo** (#6); depois (5) rh-web e (6) documentos via Supabase Storage.
 
 ---
 

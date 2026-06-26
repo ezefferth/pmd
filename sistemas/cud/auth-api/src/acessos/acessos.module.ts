@@ -7,5 +7,6 @@ import { AcessosService } from './acessos.service'
   imports: [AuthModule],
   controllers: [AcessosController],
   providers: [AcessosService],
+  exports: [AcessosService],
 })
 export class AcessosModule {}
