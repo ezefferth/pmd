@@ -4,6 +4,7 @@ import { obterUsuarioAtual } from '@/lib/sessao'
 
 const nav = [
   { href: '/', rotulo: 'Início' },
+  { href: '/processos', rotulo: 'Processos' },
   { href: '/organograma', rotulo: 'Organograma' },
   { href: '/assuntos', rotulo: 'Assuntos' },
 ]

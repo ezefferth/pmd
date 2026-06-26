@@ -1,6 +1,6 @@
 # 📋 Regras de Negócio — Sistema de Protocolo Digital (SPD)
 **Prefeitura Municipal de Dourados/MS — Secretaria Municipal de Fazenda**
-Versão: 2.3.1 | Stack: Next.js · Prisma ORM · PostgreSQL (Supabase Self-Hosted)
+Versão: 2.4.0 | Stack: Next.js · Prisma ORM · PostgreSQL (Supabase Self-Hosted)
 
 > ⚠️ **FORA DE ESCOPO por ora:** **integração Betha** e **guias de pagamento**. Ignore, nesta fase, todas
 > as RN/seções que tratam de Betha (espelho Betha, lançamentos, validações Betha) e de guias
@@ -287,6 +287,10 @@ Enum `StatusProcesso`:
 
 > **Nota:** "responsável inativo" refere-se ao **servidor responsável cujo status está inativo** — não ao `Perfil` de permissões. A inatividade é **funcional** (férias, afastamento, licença ou vacância) e vem do **CUD**, sincronizada do RH (RN-CUD-059/060).
 
+> **Implementação (MVP):** até a sincronização da situação funcional do CUD para o SPD, a inatividade
+> é lida do **espelho local** `Usuario.ativo`. O helper `src/lib/responsavel.ts` (`resolverDestinoAtivo`)
+> aplica RN-087/088 na transferência; `realocarProcessosDeResponsavel` cobre RN-087/089 sob demanda.
+
 - **RN-086 (origem do status):** A (in)atividade de um responsável no SPD é **derivada do CUD** (`estaFuncionalmenteAtivo`). Funcionalmente inativo = `FERIAS`, `AFASTADO`, `LICENCA` ou `VACANCIA`.
 
 - **RN-087 (processo já atribuído a responsável que ficou inativo):** O sistema aplica a `estrategiaResponsavelInativo` configurada no setor:
@@ -572,6 +576,79 @@ ConfiguracaoSistema:
 
 ---
 
+## 20. MELHORIAS DERIVADAS DO LEGADO NEA (engenharia reversa do banco em produção)
+
+> Regras incorporadas a partir da análise do banco Firebird do sistema NEA (protocolo atualmente em
+> produção em Dourados). Trazem padrões operacionais maduros ausentes nas versões anteriores. Itens
+> tributários/Betha do legado (`PROCESSOINSCRICAO`, `ASSUNTO_VALOR`, `IMPOSTO`) seguem **fora de escopo**.
+
+### 20.1 Auditoria estruturada (refina seção 10)
+
+O legado mantém auditoria normalizada **por campo** (`NA_AUDITORIA` + `NA_AUDITORIA_ITEM`) e configurável
+por tabela (`NA_AUDITORIA_TABELA`). Adotamos esse modelo no lugar do blob JSON.
+
+- **RN-090:** `LogAuditoria` é o **cabeçalho** (tabela, `chaveRegistro`, `operacao`, ator, IP, userAgent, data);
+  cada campo alterado vira uma linha em `LogAuditoriaItem` (`campo`, `valorAnterior`, `valorNovo`). Substitui o
+  `valorAnterior`/`valorNovo` em JSON da RN-051 — permite consultar histórico **por campo específico**.
+
+- **RN-091:** `operacao` usa o enum `TipoOperacaoAuditoria` (`INSERCAO`, `ATUALIZACAO`, `EXCLUSAO`, `LEITURA`).
+  `LEITURA` cobre a RN-079 (visualização de processo `SIGILOSO`/`SECRETO`).
+
+- **RN-092:** `ConfiguracaoAuditoria` define **quais tabelas e operações** são auditadas (flags
+  `auditarInsercao`/`auditarAtualizacao`/`auditarExclusao` + `nomeAmigavel`). Permite ligar/desligar auditoria
+  por entidade sem alterar código (legado NEA: `NA_AUDITORIA_TABELA`).
+
+- **RN-093:** `LogAuditoria` **não** tem FK para `Usuario`: guarda `usuarioId` + `usuarioNome` (snapshot) para
+  o registro **sobreviver à remoção do ator** e permanecer imutável (RN-052).
+
+### 20.2 Guia de remessa — tramitação em lote com recepção (seção 6)
+
+No legado (`GUIA_REMESSA`/`GUIA_REMESSA_ITEM`), um setor envia **vários processos de uma vez** num documento;
+o destino confirma o recebimento item a item (recepção/visto). A movimentação 1-a-1 não modela esse fluxo.
+
+- **RN-094:** Uma `GuiaRemessa` (`status` `ABERTA`→`FINALIZADA`) agrupa vários `GuiaRemessaItem`, cada um com
+  processo, setor destino, despacho, prazo e atribuição opcional a servidor. Só após `FINALIZADA` a remessa
+  produz as movimentações `REMESSA` nos processos.
+
+- **RN-095 (recepção):** No destino, cada item é **recepcionado** (`recebidoEm`, `recebidoPorId`, `visto`) —
+  separando a **emissão do despacho** (origem) da **recepção** (destino). Só usuários com
+  `UsuarioOrganograma.podeRecepcionar = true` no setor destino podem recepcionar (legado NEA:
+  `ACESSO.PODE_RECEPCIONAR`). A recepção gera movimentação `RECEPCAO` e leva o processo a `RECEBIDO`.
+
+### 20.3 Procedimentos / fluxo predefinido por assunto (seção 4)
+
+- **RN-096:** Um assunto com `seguirProcedimento = true` (legado NEA: `ASSUNTO.SEGUIR_CRITERIO`) define uma lista
+  ordenada de `ProcedimentoAssunto` (passo, setor responsável, prazo). Ao abrir o processo, cada passo vira um
+  `ProcessoProcedimento` com `executado = false`; conforme o processo tramita, os passos são marcados
+  `executado = true` (com `executadoEm`/`executadoPorId`). Serve como **checklist de tramitação** e base para
+  relatórios de etapa pendente.
+
+### 20.4 Documentos: vínculo ao andamento e integridade (seção 7/16/17)
+
+- **RN-097:** Cada `Documento` referencia o `MovimentacaoProcesso` que o originou (`movimentacaoId`) — o legado
+  amarra a peça ao andamento (`DOCUMENTO_PROCESSO.ID_SEQUENCIAL_ANDAMENTO`). Permite reconstruir, por andamento,
+  quais peças foram juntadas.
+
+- **RN-098:** No upload, o sistema calcula e grava `hashArquivo` (SHA-256) e `tamanhoBytes` (legado NEA:
+  `HASH_ARQUIVO`/`TAMANHO_ARQUIVO`). O hash é a base de integridade reaproveitada pela assinatura (RN-066).
+
+### 20.5 Modelos de documento (refina RN-036)
+
+- **RN-099:** Despachos, pareceres, capas, ofícios e termos têm templates reutilizáveis em `ModeloDocumento`
+  (`tipo` = `TipoModeloDocumento`, `conteudo`, `ativo`) — legado NEA: `MODELODOCUMENTO`/`LOTEIMPRESSAO`. O termo
+  de desentranhamento (RN-071) e a capa do processo são modelos desse cadastro.
+
+### 20.6 Localização física e consulta pública (seção 5)
+
+- **RN-100:** Ao arquivar fisicamente um processo, o sistema registra a localização em
+  `arquivoFisicoCaixa`/`arquivoFisicoPrateleira`/`arquivoFisicoGaveta` (legado NEA:
+  `PROCESSO.CAIXA/PRATELEIRA/GAVETA/ARQUIVO`), para recuperação do físico no arquivo morto.
+
+- **RN-101:** Cada processo recebe um `codigoConsultaPublica` único (legado NEA: `PROCESSO.SENHAWEB`) que permite
+  **acompanhamento sem login** — essencial para processos `ehAnonimo = true`, que não têm conta CUD associada.
+
+---
+
 ## Apêndice — Mapa de nomenclatura (legado EN → pt-BR)
 
 > Referência rápida para quem migra da versão 1.0.0 (inglês) deste documento.
@@ -617,6 +694,16 @@ Identidade do cidadão **descontinuada no SPD** — consumida do CUD (`tipoVincu
 ### Novos campos (v2.3)
 `ResponsavelOrganograma.substitutoId` (suplente), `ConfiguracaoAtribuicaoOrganograma.estrategiaResponsavelInativo`.
 Status (in)ativo do responsável **derivado do CUD/RH** (`estaFuncionalmenteAtivo`).
+
+### Novas entidades (v2.4 — derivadas do legado NEA)
+`LogAuditoria`, `LogAuditoriaItem`, `ConfiguracaoAuditoria` (auditoria field-level configurável, refina seção 10);
+`GuiaRemessa`, `GuiaRemessaItem` (tramitação em lote + recepção); `ProcedimentoAssunto`, `ProcessoProcedimento`
+(fluxo predefinido por assunto); `ModeloDocumento` (templates de despacho/parecer/capa).
+Novos campos: `Assunto.seguirProcedimento`; `UsuarioOrganograma.podeRecepcionar`;
+`Documento.movimentacaoId`/`hashArquivo`/`tamanhoBytes`;
+`Processo.codigoConsultaPublica`/`arquivoFisicoCaixa`/`arquivoFisicoPrateleira`/`arquivoFisicoGaveta`.
+Novos enums: `TipoOperacaoAuditoria`, `StatusGuiaRemessa`, `TipoModeloDocumento`; novos membros de
+`TipoMovimentacao`: `REMESSA`, `RECEPCAO`.
 
 ### Enums de domínio
 | Inglês (v1)        | pt-BR (v2)                                                                                          |

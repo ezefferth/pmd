@@ -11,11 +11,15 @@ import { toast } from 'sonner'
 export function FormToast({
   acao,
   sucesso,
+  carregando = 'Salvando…',
+  resetar = true,
   className,
   children,
 }: {
   acao: (formData: FormData) => Promise<void>
   sucesso: string
+  carregando?: string
+  resetar?: boolean
   className?: string
   children: React.ReactNode
 }) {
@@ -25,11 +29,11 @@ export function FormToast({
   async function aoEnviar(formData: FormData) {
     await toast.promise(
       acao(formData).then(() => {
-        ref.current?.reset()
+        if (resetar) ref.current?.reset()
         router.refresh()
       }),
       {
-        loading: 'Salvando…',
+        loading: carregando,
         success: sucesso,
         error: (e) => (e instanceof Error ? e.message : 'Falha ao salvar'),
       },
