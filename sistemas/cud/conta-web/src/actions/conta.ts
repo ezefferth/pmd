@@ -1,6 +1,5 @@
 'use server'
 
-import { redirect } from 'next/navigation'
 import { apiSend } from '@/lib/api'
 
 export async function cadastrar(formData: FormData) {
@@ -10,12 +9,11 @@ export async function cadastrar(formData: FormData) {
     cpf: String(formData.get('cpf') ?? ''),
     senha: String(formData.get('senha') ?? ''),
   })
-  redirect('/login?cadastro=ok')
+  // navegação para /login fica a cargo do FormToast (toast antes de redirecionar)
 }
 
 export async function recuperarSenha(formData: FormData) {
   await apiSend('POST', '/autenticacao/recuperar-senha', {
     email: String(formData.get('email') ?? ''),
   })
-  redirect('/login?recuperar=ok')
 }

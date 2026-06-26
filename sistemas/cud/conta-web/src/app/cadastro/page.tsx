@@ -1,10 +1,17 @@
 import Link from 'next/link'
 import { cadastrar } from '@/actions/conta'
+import { FormToast } from '@/components/form-toast'
 
 export default function CadastroPage() {
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
-      <form action={cadastrar} className="w-full max-w-sm space-y-3 rounded-lg border p-6 shadow-sm">
+      <FormToast
+        acao={cadastrar}
+        sucesso="Conta criada — verifique seu e-mail para ativar"
+        carregando="Criando conta…"
+        redirecionar="/login?cadastro=ok"
+        className="w-full max-w-sm space-y-3 rounded-lg border p-6 shadow-sm"
+      >
         <h1 className="text-xl font-bold text-secundaria">Criar conta</h1>
         <input name="nome" placeholder="Nome completo" required className="w-full rounded border px-3 py-2 text-sm" />
         <input name="cpf" placeholder="CPF" required className="w-full rounded border px-3 py-2 text-sm" />
@@ -15,7 +22,7 @@ export default function CadastroPage() {
           <Link href="/login" className="underline">Já tenho conta</Link>
         </p>
         <p className="text-xs opacity-60">Após o cadastro, verifique seu e-mail para ativar a conta.</p>
-      </form>
+      </FormToast>
     </main>
   )
 }

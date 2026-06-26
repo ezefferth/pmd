@@ -1,6 +1,7 @@
 import { apiGet } from '@/lib/api'
 import { SairButton } from '@/components/sair-button'
 import { atualizarPerfil, alterarSenha, alterarEmail } from '@/actions/perfil'
+import { FormToast } from '@/components/form-toast'
 
 interface Perfil {
   nome: string
@@ -48,7 +49,7 @@ export default async function MinhaContaPage() {
         <dd>{perfil.setor?.nome ?? '—'}</dd>
       </dl>
 
-      <form action={atualizarPerfil} className="space-y-3 rounded-lg border p-4">
+      <FormToast acao={atualizarPerfil} sucesso="Dados atualizados" resetar={false} className="space-y-3 rounded-lg border p-4">
         <h2 className="font-semibold">Dados de contato</h2>
         <label className="block text-sm">Nome
           <input name="nome" defaultValue={perfil.nome} className="mt-1 w-full rounded border px-3 py-2" />
@@ -63,20 +64,20 @@ export default async function MinhaContaPage() {
           <input name="emailSecundario" type="email" defaultValue={perfil.emailSecundario ?? ''} className="mt-1 w-full rounded border px-3 py-2" />
         </label>
         <button className="rounded bg-primaria px-4 py-2 text-sm font-medium text-white">Salvar</button>
-      </form>
+      </FormToast>
 
-      <form action={alterarEmail} className="space-y-3 rounded-lg border p-4">
+      <FormToast acao={alterarEmail} sucesso="E-mail alterado — verifique a caixa de entrada" className="space-y-3 rounded-lg border p-4">
         <h2 className="font-semibold">E-mail principal</h2>
         <p className="text-sm opacity-70">Atual: {perfil.email}. Alterar exige nova verificação.</p>
         <input name="email" type="email" placeholder="Novo e-mail" required className="w-full rounded border px-3 py-2 text-sm" />
         <button className="rounded border px-4 py-2 text-sm font-medium">Alterar e-mail</button>
-      </form>
+      </FormToast>
 
-      <form action={alterarSenha} className="space-y-3 rounded-lg border p-4">
+      <FormToast acao={alterarSenha} sucesso="Senha alterada" className="space-y-3 rounded-lg border p-4">
         <h2 className="font-semibold">Senha</h2>
         <input name="senha" type="password" placeholder="Nova senha (mín. 8)" required minLength={8} className="w-full rounded border px-3 py-2 text-sm" />
         <button className="rounded border px-4 py-2 text-sm font-medium">Alterar senha</button>
-      </form>
+      </FormToast>
     </main>
   )
 }

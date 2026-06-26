@@ -1,10 +1,17 @@
 import Link from 'next/link'
 import { recuperarSenha } from '@/actions/conta'
+import { FormToast } from '@/components/form-toast'
 
 export default function RecuperarSenhaPage() {
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
-      <form action={recuperarSenha} className="w-full max-w-sm space-y-3 rounded-lg border p-6 shadow-sm">
+      <FormToast
+        acao={recuperarSenha}
+        sucesso="Se o e-mail existir, enviamos as instruções"
+        carregando="Enviando…"
+        redirecionar="/login?recuperar=ok"
+        className="w-full max-w-sm space-y-3 rounded-lg border p-6 shadow-sm"
+      >
         <h1 className="text-xl font-bold text-secundaria">Recuperar senha</h1>
         <p className="text-sm opacity-70">Enviaremos instruções para o seu e-mail.</p>
         <input name="email" type="email" placeholder="E-mail" required className="w-full rounded border px-3 py-2 text-sm" />
@@ -12,7 +19,7 @@ export default function RecuperarSenhaPage() {
         <p className="text-center text-sm">
           <Link href="/login" className="underline">Voltar ao login</Link>
         </p>
-      </form>
+      </FormToast>
     </main>
   )
 }
