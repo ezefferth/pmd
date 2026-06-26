@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Toaster } from 'sonner'
 import './globals.css'
 import { gerarVariaveisCss, obterTema } from '@/lib/tema'
 
@@ -19,7 +20,10 @@ export default function RootLayout({
         {/* injeta as variáveis de cor/tipografia do município ativo (marca) */}
         <style dangerouslySetInnerHTML={{ __html: gerarVariaveisCss(tema) }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Toaster richColors position="top-right" />
+      </body>
     </html>
   )
 }

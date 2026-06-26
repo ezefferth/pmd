@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { apiGet } from '@/lib/api'
 import { criarPerfil } from '@/actions/perfis'
+import { FormToast } from '@/components/form-toast'
 
 interface Sistema {
   id: string
@@ -74,8 +75,9 @@ export default async function PerfisPage({
             </table>
           </div>
 
-          <form
-            action={criarPerfil}
+          <FormToast
+            acao={criarPerfil}
+            sucesso="Perfil criado"
             className="max-w-md space-y-3 rounded-lg border p-4"
           >
             <h2 className="font-semibold">Novo perfil</h2>
@@ -89,7 +91,7 @@ export default async function PerfisPage({
             <button className="rounded bg-primaria px-4 py-2 text-sm font-medium text-white">
               Criar perfil
             </button>
-          </form>
+          </FormToast>
         </>
       )}
     </section>

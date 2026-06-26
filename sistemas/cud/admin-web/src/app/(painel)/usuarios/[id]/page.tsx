@@ -4,6 +4,7 @@ import {
   alterarStatusUsuario,
   alterarVinculoUsuario,
 } from '@/actions/usuarios'
+import { FormToast } from '@/components/form-toast'
 
 const VINCULOS = [
   'EXTERNO',
@@ -74,7 +75,7 @@ export default async function UsuarioDetalhePage({
       </dl>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <form action={alterarStatusUsuario} className="space-y-3 rounded-lg border p-4">
+        <FormToast acao={alterarStatusUsuario} sucesso="Status atualizado" resetar={false} className="space-y-3 rounded-lg border p-4">
           <h2 className="font-semibold">Alterar status</h2>
           <input type="hidden" name="id" value={usuario.id} />
           <select name="status" defaultValue={usuario.status} className="w-full rounded border px-3 py-2 text-sm">
@@ -83,9 +84,9 @@ export default async function UsuarioDetalhePage({
             ))}
           </select>
           <button className="rounded border px-4 py-2 text-sm font-medium">Salvar</button>
-        </form>
+        </FormToast>
 
-        <form action={alterarVinculoUsuario} className="space-y-3 rounded-lg border p-4">
+        <FormToast acao={alterarVinculoUsuario} sucesso="Vínculo atualizado" resetar={false} className="space-y-3 rounded-lg border p-4">
           <h2 className="font-semibold">Alterar vínculo</h2>
           <input type="hidden" name="id" value={usuario.id} />
           <select name="tipoVinculo" defaultValue={usuario.tipoVinculo} className="w-full rounded border px-3 py-2 text-sm">
@@ -95,7 +96,7 @@ export default async function UsuarioDetalhePage({
           </select>
           <input name="matricula" placeholder="Matrícula (efetivo/comissionado)" className="w-full rounded border px-3 py-2 text-sm" />
           <button className="rounded border px-4 py-2 text-sm font-medium">Salvar</button>
-        </form>
+        </FormToast>
       </div>
 
       <div>

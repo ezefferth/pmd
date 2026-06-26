@@ -1,7 +1,6 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { apiSend } from '@/lib/api'
 
 export async function criarUsuario(formData: FormData) {
@@ -13,8 +12,8 @@ export async function criarUsuario(formData: FormData) {
     matricula: (formData.get('matricula') as string) || undefined,
     telefone: (formData.get('telefone') as string) || undefined,
   })
+  // navegação para /usuarios fica a cargo do FormToast (toast antes de redirecionar)
   revalidatePath('/usuarios')
-  redirect('/usuarios')
 }
 
 export async function alterarStatusUsuario(formData: FormData) {

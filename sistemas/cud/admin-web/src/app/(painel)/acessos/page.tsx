@@ -1,5 +1,6 @@
 import { apiGet } from '@/lib/api'
 import { concederAcesso, revogarAcesso } from '@/actions/acessos'
+import { FormToast } from '@/components/form-toast'
 
 interface Acesso {
   id: string
@@ -56,7 +57,7 @@ export default async function AcessosPage({
       )}
 
       <div className="grid gap-6 md:grid-cols-2">
-        <form action={concederAcesso} className="space-y-3 rounded-lg border p-4">
+        <FormToast acao={concederAcesso} sucesso="Acesso concedido" className="space-y-3 rounded-lg border p-4">
           <h2 className="font-semibold">Conceder acesso</h2>
           <input name="usuarioId" placeholder="usuarioId" required className="w-full rounded border px-3 py-2 text-sm" />
           <input name="sistemaId" placeholder="sistemaId" required className="w-full rounded border px-3 py-2 text-sm" />
@@ -65,16 +66,16 @@ export default async function AcessosPage({
           <button className="rounded bg-primaria px-4 py-2 text-sm font-medium text-white">
             Conceder
           </button>
-        </form>
+        </FormToast>
 
-        <form action={revogarAcesso} className="space-y-3 rounded-lg border p-4">
+        <FormToast acao={revogarAcesso} sucesso="Acesso revogado" carregando="Revogando…" className="space-y-3 rounded-lg border p-4">
           <h2 className="font-semibold">Revogar acesso</h2>
           <input name="usuarioId" placeholder="usuarioId" required className="w-full rounded border px-3 py-2 text-sm" />
           <input name="sistemaId" placeholder="sistemaId" required className="w-full rounded border px-3 py-2 text-sm" />
           <button className="rounded border px-4 py-2 text-sm font-medium">
             Revogar
           </button>
-        </form>
+        </FormToast>
       </div>
     </section>
   )

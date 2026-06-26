@@ -1,5 +1,6 @@
 import { apiGet } from '@/lib/api'
 import { criarSistema } from '@/actions/sistemas'
+import { FormToast } from '@/components/form-toast'
 
 interface Sistema {
   id: string
@@ -45,8 +46,9 @@ export default async function SistemasPage() {
         </table>
       </div>
 
-      <form
-        action={criarSistema}
+      <FormToast
+        acao={criarSistema}
+        sucesso="Sistema registrado"
         className="max-w-md space-y-3 rounded-lg border p-4"
       >
         <h2 className="font-semibold">Novo sistema</h2>
@@ -57,7 +59,7 @@ export default async function SistemasPage() {
         <button className="rounded bg-primaria px-4 py-2 text-sm font-medium text-white">
           Registrar
         </button>
-      </form>
+      </FormToast>
     </section>
   )
 }

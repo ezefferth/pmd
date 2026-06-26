@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { criarUsuario } from '@/actions/usuarios'
+import { FormToast } from '@/components/form-toast'
 
 const VINCULOS = [
   'EXTERNO',
@@ -20,7 +21,13 @@ export default function NovoUsuarioPage() {
         </Link>
       </div>
 
-      <form action={criarUsuario} className="space-y-3 rounded-lg border p-4">
+      <FormToast
+        acao={criarUsuario}
+        sucesso="Usuário criado"
+        carregando="Criando usuário…"
+        redirecionar="/usuarios"
+        className="space-y-3 rounded-lg border p-4"
+      >
         <input name="nome" placeholder="Nome" required className="w-full rounded border px-3 py-2 text-sm" />
         <input name="email" type="email" placeholder="E-mail" required className="w-full rounded border px-3 py-2 text-sm" />
         <input name="cpf" placeholder="CPF" required className="w-full rounded border px-3 py-2 text-sm" />
@@ -36,7 +43,7 @@ export default function NovoUsuarioPage() {
         <button className="rounded bg-primaria px-4 py-2 text-sm font-medium text-white">
           Criar
         </button>
-      </form>
+      </FormToast>
     </section>
   )
 }
