@@ -1,12 +1,29 @@
 import { apiGet } from '@/lib/api'
-import { concederAcesso, revogarAcesso } from '@/actions/acessos'
+import { revogarAcesso } from '@/actions/acessos'
 import { FormToast } from '@/components/form-toast'
+import { ConcederForm, type OpcaoPerfil } from './conceder-form'
 
 interface Acesso {
   id: string
   ativo: boolean
   sistema: { nome: string }
   perfil: { nome: string }
+}
+interface UsuarioResumo {
+  id: string
+  nome: string
+  email: string
+}
+interface ResultadoPaginado {
+  itens: UsuarioResumo[]
+}
+interface Sistema {
+  id: string
+  nome: string
+}
+interface Perfil {
+  id: string
+  nome: string
 }
 
 export default async function AcessosPage({
@@ -15,6 +32,23 @@ export default async function AcessosPage({
   searchParams: Promise<{ usuarioId?: string }>
 }) {
   const { usuarioId } = await searchParams
+
+  const [paginado, sistemas] = await Promise.all([
+    apiGet<ResultadoPaginado>('/usuarios?limite=100').catch(() => ({ itens: [] })),
+    apiGet<Sistema[]>('/sistemas').catch(() => []),
+  ])
+  const usuarios = paginado.itens
+
+  // perfis de todos os sistemas (para a cascata sistema→perfil)
+  const perfisPorSistema = await Promise.all(
+    sistemas.map((s) =>
+      apiGet<Perfil[]>(`/perfis?sistemaId=${s.id}`)
+        .then((lista) => lista.map((p) => ({ ...p, sistemaId: s.id })))
+        .catch(() => [] as OpcaoPerfil[]),
+    ),
+  )
+  const perfis: OpcaoPerfil[] = perfisPorSistema.flat()
+
   const acessos = usuarioId
     ? await apiGet<Acesso[]>(`/acessos/usuario/${usuarioId}`).catch(() => [])
     : []
@@ -23,13 +57,13 @@ export default async function AcessosPage({
     <section className="space-y-8">
       <h1 className="text-2xl font-bold text-secundaria">Acessos</h1>
 
-      <form className="flex gap-2" action="/acessos" method="get">
-        <input
-          name="usuarioId"
-          defaultValue={usuarioId}
-          placeholder="ID do usuário (CUD)"
-          className="w-80 rounded border px-3 py-2 text-sm"
-        />
+      <form className="flex flex-wrap gap-2" action="/acessos" method="get">
+        <select name="usuarioId" defaultValue={usuarioId ?? ''} className="w-96 rounded border px-3 py-2 text-sm">
+          <option value="">Selecione um usuário…</option>
+          {usuarios.map((u) => (
+            <option key={u.id} value={u.id}>{u.nome} — {u.email}</option>
+          ))}
+        </select>
         <button className="rounded border px-4 py-2 text-sm">Ver acessos</button>
       </form>
 
@@ -51,27 +85,31 @@ export default async function AcessosPage({
                   <td className="px-3 py-2">{a.ativo ? 'sim' : 'não'}</td>
                 </tr>
               ))}
+              {acessos.length === 0 && (
+                <tr><td className="px-3 py-3 opacity-60" colSpan={3}>Sem acessos.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
       )}
 
       <div className="grid gap-6 md:grid-cols-2">
-        <FormToast acao={concederAcesso} sucesso="Acesso concedido" className="space-y-3 rounded-lg border p-4">
-          <h2 className="font-semibold">Conceder acesso</h2>
-          <input name="usuarioId" placeholder="usuarioId" required className="w-full rounded border px-3 py-2 text-sm" />
-          <input name="sistemaId" placeholder="sistemaId" required className="w-full rounded border px-3 py-2 text-sm" />
-          <input name="perfilId" placeholder="perfilId" required className="w-full rounded border px-3 py-2 text-sm" />
-          <input name="motivo" placeholder="Motivo (opcional)" className="w-full rounded border px-3 py-2 text-sm" />
-          <button className="rounded bg-primaria px-4 py-2 text-sm font-medium text-white">
-            Conceder
-          </button>
-        </FormToast>
+        <ConcederForm usuarios={usuarios} sistemas={sistemas} perfis={perfis} />
 
         <FormToast acao={revogarAcesso} sucesso="Acesso revogado" carregando="Revogando…" className="space-y-3 rounded-lg border p-4">
           <h2 className="font-semibold">Revogar acesso</h2>
-          <input name="usuarioId" placeholder="usuarioId" required className="w-full rounded border px-3 py-2 text-sm" />
-          <input name="sistemaId" placeholder="sistemaId" required className="w-full rounded border px-3 py-2 text-sm" />
+          <select name="usuarioId" defaultValue="" required className="w-full rounded border px-3 py-2 text-sm">
+            <option value="" disabled>Usuário…</option>
+            {usuarios.map((u) => (
+              <option key={u.id} value={u.id}>{u.nome} — {u.email}</option>
+            ))}
+          </select>
+          <select name="sistemaId" defaultValue="" required className="w-full rounded border px-3 py-2 text-sm">
+            <option value="" disabled>Sistema…</option>
+            {sistemas.map((s) => (
+              <option key={s.id} value={s.id}>{s.nome}</option>
+            ))}
+          </select>
           <button className="rounded border px-4 py-2 text-sm font-medium">
             Revogar
           </button>
