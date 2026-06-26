@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { autenticarNoCud } from '@/lib/cud'
+import { autenticarNoCud, obterPerfilCud } from '@/lib/cud'
 import { COOKIE_SESSAO, lerAuthIdDoToken } from '@/lib/sessao'
 import { prisma } from '@/lib/prisma'
 
@@ -19,11 +19,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ erro: 'Token inválido' }, { status: 401 })
   }
 
-  // espelho local da identidade do CUD (RN: identidade é do CUD)
+  // espelho local da identidade do CUD (RN: identidade é do CUD) — inclui CPF p/ requerente
+  const perfil = await obterPerfilCud(dados.accessToken)
   await prisma.usuario.upsert({
     where: { authId },
-    create: { authId, nome: dados.usuario.nome, email: dados.usuario.email },
-    update: { nome: dados.usuario.nome, email: dados.usuario.email },
+    create: {
+      authId,
+      nome: dados.usuario.nome,
+      email: dados.usuario.email,
+      cpf: perfil?.cpf ?? null,
+    },
+    update: {
+      nome: dados.usuario.nome,
+      email: dados.usuario.email,
+      cpf: perfil?.cpf ?? undefined,
+    },
   })
 
   const saida = NextResponse.json({ ok: true })

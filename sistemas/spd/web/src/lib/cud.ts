@@ -20,6 +20,22 @@ export async function autenticarNoCud(
   return resposta.json() as Promise<RespostaLogin>
 }
 
+export interface PerfilCud {
+  cpf: string | null
+  nome: string
+  email: string
+}
+
+/** Dados do próprio usuário no CUD (inclui CPF) — para espelhar localmente. */
+export async function obterPerfilCud(token: string): Promise<PerfilCud | null> {
+  const resposta = await fetch(`${BASE}/perfil`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  })
+  if (!resposta.ok) return null
+  return resposta.json() as Promise<PerfilCud>
+}
+
 /** Verifica permissão granular no CUD (RN-CUD-020). authId = sub do JWT. */
 export async function verificarPermissao(
   authId: string,
