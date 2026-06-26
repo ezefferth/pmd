@@ -11,7 +11,7 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 |---------|------------------|---------|----------|
 | **CUD** (Central de Usuários) | ✅ `rn-central-de-usuarios.md` v1.5.0 | ✅ **completo** (auth-api + sync RH + grupos de acesso) | ✅ admin-web · ✅ conta-web |
 | **RH** (Recursos Humanos) | ✅ `rn-recursos-humanos.md` v1.0.0 | ✅ api: schema + domínios + sync→CUD (#35/#39/#40) | ⬜ (rh-web) |
-| **SPD** (Protocolo) | ✅ `rn-protocolo.md` v2.3.1 | 🟡 schema + scaffold (#42) + abertura portal (#54) | 🟡 portal cidadão (abrir/meus-processos) + cadastros internos |
+| **SPD** (Protocolo) | ✅ `rn-protocolo.md` v2.3.1 | 🟡 schema + scaffold (#42) + abertura portal (#54) + tramitação (#59) | 🟡 portal cidadão + cadastros internos + tramitação (processos) |
 
 > Documentos transversais: `CLAUDE.md` (convenção pt-BR + integração), `git-workflow.md`,
 > `marca/` (tema multi-município), `progresso.md` (este).
@@ -71,11 +71,11 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 - Scaffold Next 15 + Tailwind + Prisma (singleton) + marca, porta 3002, home.
 - **Toasts** sonner + `FormToast` (#52); cadastros internos (organograma, assuntos) com `FormToast`.
 - **Portal do cidadão** (#54): grupo `portal/` separado da área interna. `abrir` (cascata secretaria→assunto→motivo + campos adicionais + requerente), gera `numeroProtocolo` `NNNNNN/AAAA` atômico (RN-022/023) + 1ª `MovimentacaoProcesso` CRIADO; `meus-processos` (acompanhamento por CPF). Login espelha CPF do CUD (`/perfil`).
+- **Tramitação interna** (#59): área `(interno)/processos` (lista com filtro de status + detalhe com timeline). Server actions `src/actions/tramitacao.ts` (receber, atribuir, andamento, transferir, concluir, arquivar, reabrir, cancelar) — cada uma valida status de origem, cria `MovimentacaoProcesso` e atualiza `status`/`organogramaAtual`/atribuição em transação. **Responsável inativo** via `src/lib/responsavel.ts` (`resolverDestinoAtivo`, RN-087/088) + `realocarProcessosDeResponsavel` (RN-087/089). Toasts em todas as ações.
 
 ### Falta no SPD
 - **Auth via CUD** (servidor e cidadão — #1): login básico já consome CUD; falta consolidar guarda das rotas internas e verificação de permissão
-- Tramitação (movimentar/transferir/concluir), responsável inativo (#6)
-- Schema avançado: assinatura, pendências, sigilo/credencial, notificações, vínculos
+- Assinatura de parecer (RN-065/068), pendências/prazos (RN-072/073), sigilo/credencial (RN-077), notificações (RN-059)
 - Documentos via Supabase Storage
 
 ---
@@ -122,10 +122,10 @@ Histórico do que já foi construído e o que falta — ponto de retomada.
 - **Confirmar 2 cores do manual** (`#d1d1b`, `#1e1ec`) e **licença Gotham** (frontends).
 
 ## Issues abertas
-#1 (auth SPD via CUD — parcial) · #6 (responsável inativo no SPD).
-(#3 abertura cidadão SPD → **concluída** via #54; #52 toasts SPD; #55/#56 toasts CUD; #18 sync, #34/#35 RH scaffold, #38/#39 RH domínios, #41/#42 SPD scaffold — concluídos.)
+#1 (auth SPD via CUD — parcial).
+(#3 abertura cidadão SPD → **concluída** via #54; #6 responsável inativo → **concluída** via #59; #52 toasts SPD; #55/#56 toasts CUD; #57/#58 grupos de acesso; #18 sync, #34/#35 RH scaffold, #38/#39 RH domínios, #41/#42 SPD scaffold — concluídos.)
 
-**Próximo na fila autônoma:** (4) SPD **tramitação** (movimentar/transferir/concluir) e tratamento de **responsável inativo** (#6); depois (5) rh-web e (6) documentos via Supabase Storage.
+**Próximo na fila autônoma:** (5) **rh-web** (frontend do RH, porta 3004); depois (6) documentos via Supabase Storage no SPD.
 
 ---
 
