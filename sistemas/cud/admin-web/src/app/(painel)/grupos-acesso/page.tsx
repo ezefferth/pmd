@@ -23,12 +23,22 @@ interface GrupoAcesso {
   ativo: boolean
   perfis: { perfil: { id: string; nome: string; sistema: { nome: string } } }[]
 }
+interface UsuarioResumo {
+  id: string
+  nome: string
+  email: string
+}
+interface ResultadoPaginado {
+  itens: UsuarioResumo[]
+}
 
 export default async function GruposAcessoPage() {
-  const [grupos, sistemas] = await Promise.all([
+  const [grupos, sistemas, paginado] = await Promise.all([
     apiGet<GrupoAcesso[]>('/grupos-acesso').catch(() => []),
     apiGet<Sistema[]>('/sistemas').catch(() => []),
+    apiGet<ResultadoPaginado>('/usuarios?limite=100').catch(() => ({ itens: [] })),
   ])
+  const usuarios = paginado.itens
 
   // perfis de cada sistema, para montar a seleção agrupada
   const perfisPorSistema = await Promise.all(
@@ -83,13 +93,18 @@ export default async function GruposAcessoPage() {
                 >
                   <input type="hidden" name="id" value={g.id} />
                   <label className="text-xs">
-                    Aplicar a (usuarioId)
-                    <input
+                    Aplicar a
+                    <select
                       name="usuarioId"
-                      placeholder="ID do usuário (CUD)"
+                      defaultValue=""
                       required
-                      className="mt-1 w-56 rounded border px-2 py-1 text-sm"
-                    />
+                      className="mt-1 w-64 rounded border px-2 py-1 text-sm"
+                    >
+                      <option value="" disabled>Selecione um usuário…</option>
+                      {usuarios.map((u) => (
+                        <option key={u.id} value={u.id}>{u.nome} — {u.email}</option>
+                      ))}
+                    </select>
                   </label>
                   <button className="rounded bg-primaria px-3 py-1.5 text-sm font-medium text-white">
                     Aplicar
